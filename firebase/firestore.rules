@@ -6,8 +6,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function isOwner(ownerUid) {
+      return isSignedIn() && uid() == ownerUid;
     }
 
     function isModerator() {
@@ -20,8 +24,56 @@ service cloud.firestore {
         && request.auth.token.universityId is string;
     }
 
+    function myUniversity() {
+      return request.auth.token.universityId;
+    }
+
     function sameUniversity(data) {
-      return isVerified() && data.universityId == request.auth.token.universityId;
+      return isVerified() && data.universityId == myUniversity();
+    }
+
+    function canSee(data) {
+      return isVerified() && (data.visibility == 'global' || data.universityId == myUniversity());
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isText(value, min, max) {
+      return value is string && value.size() >= min && value.size() <= max;
+    }
+
+    function isNow(value) {
+      return value == request.time;
+    }
+
+    function validVisibility(data) {
+      return data.visibility in ['campus', 'global'] && data.universityId == myUniversity();
+    }
+
+    function post(postId) {
+      return get(/databases/$(database)/documents/posts/$(postId)).data;
+    }
+
+    function club(clubId) {
+      return get(/databases/$(database)/documents/clubs/$(clubId)).data;
+    }
+
+    function event(eventId) {
+      return get(/databases/$(database)/documents/events/$(eventId)).data;
+    }
+
+    function conversation(conversationId) {
+      return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+    }
+
+    function blocked(ownerUid, targetUid) {
+      return exists(/databases/$(database)/documents/blocks/$(ownerUid)/blocked/$(targetUid));
     }
 
     match /universities/{universityId} {
@@ -29,23 +81,175 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    match /users/{uid} {
-      allow read: if isOwner(uid) || isModerator() || sameUniversity(resource.data);
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isModerator() || sameUniversity(resource.data);
       allow write: if false;
     }
 
-    match /userPrivate/{uid} {
-      allow read: if isOwner(uid);
+    match /userPrivate/{userId} {
+      allow read: if isOwner(userId);
       allow write: if false;
     }
 
     match /verificationRequests/{requestId} {
-      allow read: if isModerator() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow read: if isModerator() || (isSignedIn() && resource.data.uid == uid());
       allow write: if false;
     }
 
     match /moderationLogs/{logId} {
       allow read: if isModerator();
+      allow write: if false;
+    }
+
+    match /needs/{needId} {
+      allow read: if canSee(resource.data) || (isSignedIn() && resource.data.authorUid == uid());
+      allow write: if false;
+
+      match /matches/{candidateUid} {
+        function need() {
+          return get(/databases/$(database)/documents/needs/$(needId)).data;
+        }
+
+        allow read: if isVerified() && (candidateUid == uid() || need().authorUid == uid());
+        allow update: if isVerified()
+          && need().authorUid == uid()
+          && changedKeys().hasOnly(['status'])
+          && incoming().status == 'dismissed';
+        allow create, delete: if false;
+      }
+    }
+
+    match /posts/{postId} {
+      allow read: if canSee(resource.data);
+      allow create: if isVerified()
+        && incoming().keys().hasOnly(['authorUid', 'universityId', 'visibility', 'text', 'likeCount', 'commentCount', 'createdAt'])
+        && incoming().authorUid == uid()
+        && validVisibility(incoming())
+        && isText(incoming().text, 1, 1000)
+        && incoming().likeCount == 0
+        && incoming().commentCount == 0
+        && isNow(incoming().createdAt);
+      allow update: if isVerified()
+        && resource.data.authorUid == uid()
+        && changedKeys().hasOnly(['text', 'editedAt'])
+        && isText(incoming().text, 1, 1000)
+        && isNow(incoming().editedAt);
+      allow delete: if false;
+
+      match /comments/{commentId} {
+        allow read: if canSee(post(postId));
+        allow create: if canSee(post(postId))
+          && incoming().keys().hasOnly(['authorUid', 'text', 'createdAt'])
+          && incoming().authorUid == uid()
+          && isText(incoming().text, 1, 500)
+          && isNow(incoming().createdAt);
+        allow update: if isVerified()
+          && resource.data.authorUid == uid()
+          && changedKeys().hasOnly(['text', 'editedAt'])
+          && isText(incoming().text, 1, 500)
+          && isNow(incoming().editedAt);
+        allow delete: if false;
+      }
+
+      match /likes/{likerUid} {
+        allow read: if canSee(post(postId));
+        allow create: if likerUid == uid()
+          && canSee(post(postId))
+          && incoming().keys().hasOnly(['createdAt'])
+          && isNow(incoming().createdAt);
+        allow delete: if isVerified() && likerUid == uid();
+        allow update: if false;
+      }
+    }
+
+    match /clubs/{clubId} {
+      allow read: if canSee(resource.data);
+      allow write: if false;
+
+      match /members/{memberUid} {
+        allow read: if canSee(club(clubId));
+        allow create: if memberUid == uid()
+          && canSee(club(clubId))
+          && incoming().keys().hasOnly(['joinedAt'])
+          && isNow(incoming().joinedAt);
+        allow delete: if isVerified() && memberUid == uid();
+        allow update: if false;
+      }
+    }
+
+    match /events/{eventId} {
+      allow read: if canSee(resource.data);
+      allow write: if false;
+
+      match /attendees/{attendeeUid} {
+        allow read: if canSee(event(eventId));
+        allow create: if attendeeUid == uid()
+          && canSee(event(eventId))
+          && incoming().keys().hasOnly(['joinedAt'])
+          && isNow(incoming().joinedAt);
+        allow delete: if isVerified() && attendeeUid == uid();
+        allow update: if false;
+      }
+    }
+
+    match /conversations/{conversationId} {
+      allow read: if isVerified() && uid() in resource.data.participants;
+      allow write: if false;
+
+      match /messages/{messageId} {
+        function participants() {
+          return conversation(conversationId).participants;
+        }
+
+        allow read: if isVerified() && uid() in participants();
+        allow create: if isVerified()
+          && uid() in participants()
+          && !blocked(participants()[0], uid())
+          && !blocked(participants()[1], uid())
+          && !blocked(uid(), participants()[0])
+          && !blocked(uid(), participants()[1])
+          && incoming().keys().hasOnly(['senderUid', 'text', 'createdAt'])
+          && incoming().senderUid == uid()
+          && isText(incoming().text, 1, 2000)
+          && isNow(incoming().createdAt);
+        allow update, delete: if false;
+      }
+    }
+
+    match /notifications/{ownerUid}/items/{notificationId} {
+      allow read: if isOwner(ownerUid);
+      allow update: if isOwner(ownerUid)
+        && changedKeys().hasOnly(['read'])
+        && incoming().read == true;
+      allow create, delete: if false;
+    }
+
+    match /blocks/{ownerUid}/blocked/{targetUid} {
+      allow read: if isOwner(ownerUid);
+      allow create: if isOwner(ownerUid)
+        && targetUid != ownerUid
+        && incoming().keys().hasOnly(['createdAt'])
+        && isNow(incoming().createdAt);
+      allow delete: if isOwner(ownerUid);
+      allow update: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read: if isModerator();
+      allow create: if isVerified()
+        && incoming().keys().hasOnly(['reporterUid', 'targetType', 'targetPath', 'reason', 'details', 'status', 'createdAt'])
+        && incoming().reporterUid == uid()
+        && incoming().targetType in ['user', 'need', 'post', 'comment', 'message']
+        && isText(incoming().targetPath, 3, 300)
+        && incoming().reason in ['spam', 'harassment', 'hate', 'inappropriate', 'impersonation', 'other']
+        && isText(incoming().details, 0, 500)
+        && incoming().status == 'open'
+        && isNow(incoming().createdAt);
+      allow update, delete: if false;
+    }
+
+    match /dataExports/{ownerUid}/jobs/{jobId} {
+      allow read: if isOwner(ownerUid);
       allow write: if false;
     }
 

@@ -1,6 +1,6 @@
 # KampüsAğı — Tehdit Modeli
 
-> **TASLAK — İSKELET.** Faz 0'da açıldı; Faz 5'te STRIDE ile doldurulur, Faz 13'te gözden geçirilir.
+> **TASLAK.** Faz 0'da açıldı; Faz 5'te STRIDE ile dolduruldu; Faz 13'te gözden geçirilecek.
 > Son güncelleme: 2026-09-25
 
 ## 1. Kapsam
@@ -36,19 +36,22 @@ Web istemcisi (landing + uygulama + `/admin`), Cloud Functions, Firestore, Stora
 4. Functions (Admin SDK) ↔ Firestore/Storage (Rules'u atlar — en yüksek yetki)
 5. Moderatör paneli ↔ belge önizleme (kısa ömürlü URL)
 
-## 5. STRIDE tablosu (Faz 5'te doldurulacak)
+## 5. STRIDE tablosu (Faz 5)
+
+Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules/emulator/e2e).
 
 | Bileşen | Spoofing | Tampering | Repudiation | Information Disclosure | Denial of Service | Elevation of Privilege |
 |---|---|---|---|---|---|---|
-| Auth / claim'ler | | | | | | |
-| Firestore Rules | | | | | | |
-| Storage (belge) | | | | | | |
-| `parseNeed` + Claude | | | | | | |
-| Eşleştirme motoru | | | | | | |
-| Mesajlaşma | | | | | | |
-| Bildirimler / sayaçlar | | | | | | |
-| `/admin` paneli | | | | | | |
-| Veri dışa aktarma / hesap silme | | | | | | |
+| Auth / claim'ler | Firebase Auth; claim'ler yalnızca Admin SDK (T) | İstemci claim yazamaz; tür bozuk claim yok sayılır (T) | Claim değişiklikleri `moderationLogs`'ta (doğrulama) | Claim'lerde PII yok (yalnızca `universityId`) | Token yenileme istemcide sınırlı (bir kez) | `moderator`/`verified` yalnızca sunucu (T); `syncVerificationClaims` yalnızca sunucu durumunu yansıtır |
+| Firestore Rules | `*Uid == request.auth.uid` zorunlu (T) | Alan listeleri `hasOnly`; sayaç/skor istemciye kapalı (T) | `createdAt == request.time` (T) | Default deny; kampüs/genel görünürlük; `userPrivate` yalnızca sahibi (T) | Liste sorguları görünürlük filtresi olmadan reddedilir (T) | Moderatör claim'i içerik okuma yetkisi vermez; moderasyon sunucudan (D-040) |
+| Storage (belge) | Yol `verification/{uid}` = token uid (T) | Üzerine yazma/silme yok (T); sunucuda imza kontrolü (T) | Başvuru kaydı + denetim kaydı | Sahibi + moderatör; kalıcı bağlantı yok (T) | 5 MB sınırı, App Check, yetim temizliği | — |
+| `parseNeed` + Claude (Faz 6) | Oturum + App Check + doğrulanmış (C) | Çıktı şema doğrulaması; Claude çıktısı yetki alanına yazılmaz | PII'siz log | PII maskeleme; anahtar yalnızca Secret Manager | Kullanıcı kotası + günlük maliyet tavanı | Prompt injection yetki üretemez (çıktı yalnızca ilan alanları) |
+| Eşleştirme motoru (Faz 7) | Yalnızca sunucu yazar (R, T) | Skor/gerekçe istemciye kapalı; ilan sahibi yalnızca `dismissed` (T) | `weightsVersion` | Eşleşmeyi yalnızca ilan sahibi ve aday görür (T); `config/matching` kapalı (T) | Aday sorgusu sınırlı ve indeksli | — |
+| Mesajlaşma (Faz 10) | `senderUid` = token uid (T) | Mesaj düzenleme/silme yok (T); okunmamış sayacı sunucuda (T) | Mesajlar değiştirilemez | Yalnızca katılımcılar (T) | Uzunluk sınırı (T); hız sınırı Faz 10 | Engelleme iki yönlü (T) |
+| Bildirimler / sayaçlar | Yalnızca sunucu oluşturur (T) | Sahibi yalnızca `read: true` (T) | — | Yalnızca sahibi (T) | — | — |
+| `/admin` paneli | `moderator` claim'i + sunucu kontrolü (T) | Kararlar yalnızca callable (T) | `moderationLogs` (T) | Belge yalnızca moderatöre | — | Kendi başvurusunu inceleyemez (T) |
+| Veri dışa aktarma / hesap silme (Faz 11) | Yeniden kimlik doğrulama | İş kayıtları yalnızca sunucuda (T) | İşlem kayıtları | Dışa aktarım yalnızca sahibine, kısa ömürlü | Kota | — |
+| Raporlar | `reporterUid` = token uid (T) | Durum yalnızca sunucu (T) | Rapor kaydı değiştirilemez | Yalnızca moderatör okur (T) | Metin sınırı (T); hız sınırı Faz 12 | — |
 
 ## 6. Bilinen tehditler (başlangıç listesi — TASLAK)
 
@@ -76,6 +79,14 @@ Web istemcisi (landing + uygulama + `/admin`), Cloud Functions, Firestore, Stora
 | T-20 | Belgenin kalıcı bağlantıyla sızması | `getDownloadURL` kullanılmaz; bellek içi blob önizleme (D-035) | 4 |
 | T-21 | Depolama kötüye kullanımı (çok sayıda yükleme) | 5 MB sınırı, App Check, reddedilen gönderimde anında silme, 24 saatlik yetim temizliği (D-036) | 4, 13 |
 
-## 7. Artık riskler
+## 7. Artık riskler (Faz 5)
 
-Faz 5 ve Faz 13'te doldurulacak.
+| Risk | Açıklama | Karar / izleme |
+|---|---|---|
+| R-01 | Claim'ler token yenilenene kadar (≤ 1 saat) eski kalabilir | Kritik iptallerde `revokeRefreshTokens` (D-007, D-037) |
+| R-02 | Rules `get()`/`exists()` maliyeti (yorum, beğeni, mesaj başına 1–5 okuma) | Kabul; Faz 13 maliyet testinde ölçülecek |
+| R-03 | App Check olmadan istemci çağrıları (web sağlayıcısı henüz seçilmedi) | Faz 14'te site anahtarı zorunlu |
+| R-04 | Depolama kötüye kullanımı (24 saat pencere) | D-036; Faz 13'te yeniden değerlendirme |
+| R-05 | Sunucu tarafı rota koruması yok (yalnızca istemci) | D-028; veri Rules ile korunuyor |
+| R-06 | Hukuki metinler taslak; saklama süreleri öneri | S-16; yayından önce hukuk onayı |
+

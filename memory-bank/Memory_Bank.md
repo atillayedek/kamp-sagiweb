@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 5** (Faz 0–4 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 6** (Faz 0–5 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -18,7 +18,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | Faz 2 | **Tamamlandı**: `packages/contracts`, `functions/` (callable sarmalayıcı + `v1-ping`), `firebase/` (default deny + rules testleri), web connector katmanı, CSP, CI, SessionStart hook |
 | Faz 3 | **Tamamlandı**: e-posta/şifre ile kimlik doğrulama (geçici, S-04), onboarding ve profil callable'ları, `users`/`userPrivate`/`universities` Rules, dinamik `(app)` rota grubu, dört sekmeli kabuk, profil sayfası |
 | Faz 4 | **Tamamlandı**: belge yükleme + sunucu doğrulaması, moderatör paneli (`/admin`), onay/red + claim, denetim kaydı, kilitler, saklama/temizlik işi |
-| Faz 5 | Başlıyor |
+| Faz 5 | **Tamamlandı**: veri modeli kesinleşti (`docs/data-model.md`), tüm koleksiyonlar için alan bazlı Rules, kampüs/genel görünürlük, indeksler, STRIDE |
+| Faz 6 | Başlıyor |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
 | Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
@@ -417,6 +418,24 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Why: Tutarlı kullanıcı mesajı, çıkar çatışmasının önlenmesi, denetim izi.
 - Risk: Yok.
 
+**D-039 — Görünürlük kalıbı tek tip**
+- Decision: İlan, gönderi, kulüp ve etkinlik belgelerinin hepsi `universityId` (yazarın/oluşturanın üniversitesi) + `visibility: "campus" | "global"` taşır. Kampüs içeriği yalnızca aynı üniversitedeki doğrulanmış, genel içerik tüm doğrulanmış öğrencilere açıktır. Taslaktaki `posts.universityId | null` kalıbı bırakıldı.
+- Why: Tek Rules yardımcı fonksiyonu (`canSee`), tek indeks kalıbı; istemci üniversite adına gönderi yazamaz (`validVisibility`).
+- Alternative: `universityId: null` ile genel içerik.
+- Risk: Yok (henüz veri yok).
+
+**D-040 — Moderatör claim'i içerik okuma yetkisi vermez**
+- Decision: `moderator` claim'i Rules'ta yalnızca `users`, `verificationRequests`, `moderationLogs`, `reports` okumaya ve Storage'daki belgeye erişime izin verir; kampüs içeriği (ilan, gönderi, mesaj) okuma yetkisi vermez. Raporlanan içeriğin moderasyonu Faz 12'de sunucu tarafı callable ile (yalnızca raporlanan hedef, denetim kaydıyla) yapılacak.
+- Why: En az yetki; moderatörün tüm kampüslerin mesajlarını okuyabilmesi gereksiz ve riskli.
+- Alternative: Moderatöre tam okuma.
+- Risk: Faz 12'de raporlanan içeriğin bağlamını gösterme ihtiyacı sunucu üzerinden çözülecek.
+
+**D-041 — Rules yazım kalıpları**
+- Decision: Her istemci yazımında `keys().hasOnly(...)` (fazla alan yok) + zorunlu alanların doğrulanması + `createdAt/editedAt/joinedAt == request.time`; kimlik alanları token uid'ye eşit; sayaçlar oluşturmada 0 ve sonra istemciye kapalı; silme çoğunlukla sunucuda (yorum/gönderi) — beğeni, üyelik, katılım ve engel kaldırma istemcide. Sorgular görünürlük filtresi içermek zorunda.
+- Why: Tek kalıp, test edilebilirlik; sayaç manipülasyonunun imkânsız olması.
+- Alternative: Yazımların tamamını callable'a taşımak.
+- Risk: Gönderi/yorum silme Faz 9'da callable olarak eklenecek.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -516,9 +535,16 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - [x] Testler: rules 40, birim 136, emulator 28, e2e 121 (yükleme → onay → kilidin açılması; ret → sebep → yeniden yükleme; moderatör olmayana 403; sahte PDF; axe; CSP).
 - [x] Faz sonu `code-review`: 3 bulgu → (1) eşzamanlı onayda claim kaybı düzeltildi + test; (2) yetim dosyalar düzeltildi (anında silme + 24 saat temizliği) + test; (3) `object-src 'none'` altında PDF önizlemesinin engellenmesi **Chromium'da yeniden üretilemedi** (deneyle), e2e'ye gömülü görüntüleyici kontrolü eklendi.
 
+**Faz 5 (2026-09-25)**
+- [x] `docs/data-model.md`: tüm koleksiyonlar, alanlar, okuma/yazma yetkisi, taslaktan sapmalar, indeksler.
+- [x] `firestore.rules` yeniden yazıldı: `needs` (+`matches`), `posts` (+`comments`, `likes`), `clubs` (+`members`), `events` (+`attendees`), `conversations` (+`messages`, iki yönlü engel kontrolü), `notifications`, `blocks`, `reports`, `dataExports`, `config`/`rateLimits` (kapalı).
+- [x] Rules testleri 40 → 87: çapraz üniversite okuma/yazma/sorgu, doğrulanmamış/sahte claim/anonim, sayaç ve skor manipülasyonu, kimlik taklidi, zaman damgası, fazla alan, engelleme, bildirim, rapor, sunucuya özel koleksiyonlar.
+- [x] `firestore.indexes.json`: ilan, gönderi, kulüp, etkinlik, konuşma indeksleri.
+- [x] `docs/threat-model.md`: STRIDE tablosu ve artık riskler.
+
 ## 10. Sonraki adımlar
 
-1. Faz 5: veri modelinin kesinleştirilmesi, üniversite izolasyonu kalıpları (kampüs/global görünürlük), tüm koleksiyonlar için alan bazlı Rules + çapraz üniversite testleri, `docs/threat-model.md` STRIDE doldurma.
+1. Faz 6: `parseNeed` callable (auth + verified + App Check + Zod + kota + idempotency), PII maskeleme, Claude çağrısı (yalnızca sunucu, `claude-api` skill kuralları, structured outputs), yapılandırılmış önizleme → onay → yayınlama UI'ı, mock'lu testler.
 2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-04, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31, S-32.
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
@@ -570,3 +596,4 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 2 | Contracts, Functions iskeleti, default deny Rules + testler, connector katmanı, CSP, CI, SessionStart hook; D-020…D-025 |
 | 2026-09-25 | 3 | Kimlik doğrulama, onboarding, profil, üniversite; Rules + testler; e2e emulator akışı; D-026…D-032 |
 | 2026-09-25 | 4 | Öğrenci doğrulaması, moderatör paneli, claim akışı, saklama/temizlik; D-033…D-038 |
+| 2026-09-25 | 5 | Veri modeli, tüm koleksiyon Rules'u, 87 rules testi, indeksler, STRIDE; D-039…D-041 |

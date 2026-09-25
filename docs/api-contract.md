@@ -36,7 +36,9 @@ Akış (Faz 4'te uygulandı): belge yüklenir → `v1-submitVerification` dosyay
 
 İstemciler claim'leri yalnızca okur ve `customClaimsSchema` ile doğrular; beklenmeyen türdeki claim yok sayılır.
 
-## 4. Firestore erişim sözleşmesi (Faz 3 itibarıyla)
+## 4. Firestore erişim sözleşmesi
+
+Tam tablo: `docs/data-model.md` (Faz 5). Özet:
 
 | Yol | Okuma | Yazma |
 |---|---|---|
