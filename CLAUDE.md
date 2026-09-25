@@ -1,0 +1,14 @@
+# KampüsAğı Web
+
+Bu repoda çalışmaya başlamadan önce sırayla oku ve uygula:
+
+1. `AI_Guidelines.md` — bağlayıcı çalışma, güvenlik, KVKK, Claude API ve test kuralları.
+2. `memory-bank/Memory_Bank.md` — güncel faz, kararlar, Active/Missing Skills, açık sorular.
+3. `project-goals.md` — kapsam, faz planı ve belirsizlikler.
+
+Kısa özet (ayrıntı `AI_Guidelines.md` §3):
+- Kullanıcıyla ve dokümanlarda Türkçe; kod tanımlayıcıları İngilizce.
+- Claude yalnızca Cloud Functions'tan çağrılır; tarayıcıda Anthropic izi olmaz.
+- Yetki yalnızca Firebase Auth custom claim'den gelir; skor, sayaç, doğrulama durumu ve bildirimler yalnızca sunucuda yazılır.
+- Hiçbir sır repoya, log'a veya dokümana yazılmaz.
+- Her faz sonunda Memory Bank güncellenir ve sonraki faz için onay istenir.
