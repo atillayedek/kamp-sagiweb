@@ -515,6 +515,12 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: `effort: "low"` ile gecikmeyi ve maliyeti azaltmak.
 - Risk: Gecikme. Canlı değerlendirme seti ve effort taraması kullanıcı onayı bekliyor (S-33, gerçek maliyet).
 
+**D-053 — Tarayıcı PDF desteğine göre önizleme**
+- Decision: Moderatör önizlemesi `navigator.pdfViewerEnabled === false` ise belgeyi indirmez; güncel masaüstü tarayıcı kullanılmasını söyleyen bir mesaj gösterir. e2e testi bu yeteneğe göre iki daldan birini doğrular.
+- Why: Bazı tarayıcılar (headless, bazı mobil tarayıcılar) PDF'i sayfa içinde gösteremez; boş çerçeve yerine anlaşılır durum gerekir. Görüntüleyici olmayan ortamda belgeyi indirmek veri minimizasyonuna aykırı.
+- Alternative: Belgeyi indirme bağlantısı sunmak (moderatör cihazında kalıcı kopya bırakır); pdf.js ile çizim (ek bağımlılık, Faz 13'te yeniden değerlendirilebilir).
+- Risk: CI'da görüntüleyici dalı (CSP altında gömülü görüntüleyici) çalışmaz; bu dal yerelde tam Chromium ile doğrulanıyor.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -660,7 +666,12 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
   - `needDrafts` KVKK envanterine eklendi; SDK istemcisi ve şema bir kez oluşturuluyor.
   - Kalan bulgu (elle doldurma yolunun reddi atlatması) güvenlik kontrolü olmadığı için belgelendi (D-049, R-07).
 - [x] e2e axe yardımcısı, Next 16'nın akışla gelen `<title>`'ını bekliyor (yarış durumu giderildi).
-- [x] **CI düzeltmesi:** Faz 4 ve 5 koşuları (run 3–5) e2e job'unda kırmızıydı ve fark edilmemişti. Sebep: CI'da Playwright varsayılan olarak `chromium-headless-shell` kullanıyor; bunda PDF görüntüleyici yok, bu yüzden moderatör önizlemesindeki `embed[type="application/pdf"]` kontrolü başarısız oluyordu. Yerelde tam Chromium kullanıldığı için görünmedi. Hata yerelde headless shell ile yeniden üretildi. Düzeltme `playwright.config.ts > use.channel = "chromium"`: headless modda da tam Chromium kullanılıyor ve kullanıcı tarayıcısına daha yakın. CI kurulumu `--no-shell` oldu. Aynı çözümleme yolu CI benzeri bir tarayıcı diziniyle yerelde doğrulandı: kanalsız başarısız, kanallı başarılı; tüm e2e 139 başarılı. Ders: her push'tan sonra CI sonucu kontrol edilmeli.
+- [x] **CI düzeltmesi:** Faz 4 ve 5 koşuları (run 3–5) e2e job'unda kırmızıydı ve fark edilmemişti. Sebep: moderatör önizlemesindeki `embed[type="application/pdf"]` kontrolü tarayıcının gömülü PDF görüntüleyicisine bağlıydı. CI'daki Playwright tarayıcılarında görüntüleyici yok (`navigator.pdfViewerEnabled === false`); yerelde kullanılan tam Chromium'da var. **İlk deneme yanlıştı:** `channel: "chromium"` (run 7) sorunu çözmedi. Yerel doğrulama, CI'nin sürümünü (Chrome for Testing 153) değil eski yerel sürümü kullanmıştı; CI sürümü indirilemedi. **Gerçek düzeltme (D-053):**
+  - Ürün: önizleme, tarayıcı PDF'i sayfa içinde gösteremiyorsa belgeyi indirmeden açıklayıcı bir mesaj gösterir.
+  - Test: görüntüleyici varsa `embed` + CSP kontrolü, yoksa mesaj ve iframe olmadığı doğrulanır.
+  - İki dal da yerelde gerçekten çalıştırıldı: tam Chromium → `true`/embed; headless shell → `false`/mesaj.
+  - Kanal değişikliği geri alındı.
+  - Ders: her push'tan sonra CI sonucu kontrol edilmeli; "CI benzeri" doğrulamada tarayıcı sürümü de aynı olmalı.
 
 ## 10. Sonraki adımlar
 

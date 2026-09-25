@@ -49,8 +49,13 @@ test("belge yükleme, moderatör onayı ve kilidin açılması", async ({ page, 
   await expectNoA11yViolations(moderator.page);
   await card.getByRole("button", { name: "Belgeyi görüntüle" }).click();
   const preview = moderator.page.getByRole("dialog", { name: "Öğrenci belgesi" });
-  await expect(preview.locator("iframe")).toBeVisible();
-  await expect(preview.frameLocator("iframe").locator('embed[type="application/pdf"]')).toBeAttached();
+  if (await moderator.page.evaluate(() => navigator.pdfViewerEnabled)) {
+    await expect(preview.locator("iframe")).toBeVisible();
+    await expect(preview.frameLocator("iframe").locator('embed[type="application/pdf"]')).toBeAttached();
+  } else {
+    await expect(preview.getByText("Bu tarayıcı PDF önizlemeyi desteklemiyor")).toBeVisible();
+    await expect(preview.locator("iframe")).toHaveCount(0);
+  }
   await preview.getByRole("button", { name: "Kapat" }).click();
   await card.getByRole("button", { name: "Onayla" }).click();
   await expect(moderator.page.getByRole("status").filter({ hasText: "Başvuru onaylandı" })).toBeVisible();

@@ -15,7 +15,6 @@ export default defineConfig({
     locale: "tr-TR",
     timezoneId: "Europe/Istanbul",
     trace: "retain-on-failure",
-    channel: "chromium",
     launchOptions: executablePath ? { executablePath } : {},
   },
   projects: [

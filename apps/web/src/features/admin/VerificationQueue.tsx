@@ -26,12 +26,18 @@ type QueueItem = { id: string; request: VerificationRequest; profile: PublicProf
 
 type QueueState = { status: "loading" } | { status: "ready"; items: QueueItem[] } | { status: "error"; message: string };
 
+function supportsInlinePdf() {
+  return typeof navigator === "undefined" || navigator.pdfViewerEnabled !== false;
+}
+
 function Preview({ item, onClose }: { item: QueueItem; onClose: () => void }) {
   const { storage } = useConnectors();
+  const [inlinePdf] = useState(supportsInlinePdf);
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!inlinePdf) return;
     let objectUrl: string | null = null;
     let active = true;
     storage.download(item.request.storagePath).then(
@@ -46,12 +52,18 @@ function Preview({ item, onClose }: { item: QueueItem; onClose: () => void }) {
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [item.request.storagePath, storage]);
+  }, [inlinePdf, item.request.storagePath, storage]);
 
   return (
     <Modal open onClose={onClose} title="Öğrenci belgesi" description={item.profile?.displayName ?? item.request.uid}>
+      {!inlinePdf && (
+        <ErrorState
+          title="Bu tarayıcı PDF önizlemeyi desteklemiyor"
+          description="Belgeyi incelemek için güncel bir masaüstü tarayıcı (Chrome, Edge, Firefox veya Safari) kullan. Belge bu cihaza indirilmedi."
+        />
+      )}
       {error && <ErrorState title="Belge açılamadı" description={error} />}
-      {!error && !url && <Skeleton className="h-[60vh] w-full" />}
+      {inlinePdf && !error && !url && <Skeleton className="h-[60vh] w-full" />}
       {url && <iframe src={url} title="Öğrenci belgesi önizlemesi" className="h-[60vh] w-full rounded-control border border-line" />}
     </Modal>
   );
