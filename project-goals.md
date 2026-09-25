@@ -1,6 +1,6 @@
 # KampüsAğı Web — Proje Hedefleri
 
-> Durum: **Faz 0 — onay bekliyor** · Son güncelleme: 2026-09-25
+> Durum: **Faz 0 ve Faz 1 tamamlandı; Faz 2 sürüyor** · Son güncelleme: 2026-09-25
 > Bu dosyadaki "ÖNERİ" etiketli her şey kesin karar değildir. "BELİRSİZ / KARAR BEKLİYOR" maddeleri §11'de listelidir; kararlar `memory-bank/Memory_Bank.md` içinde kayıt altına alınır.
 
 ---

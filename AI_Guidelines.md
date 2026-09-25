@@ -108,7 +108,9 @@ Her yeni bağımlılık için gerekçe + lisans + bakım durumu kontrol edilir v
 
 - TypeScript `strict`; `any` yok (zorunluysa gerekçeli `unknown` + daraltma).
 - Tüm dış girdiler (callable girdisi, Firestore'dan okunan belge, Claude çıktısı, URL parametresi) Zod ile doğrulanır.
-- Kullanıcı içeriği ham HTML olarak render edilmez (`dangerouslySetInnerHTML` yok).
+- Kullanıcı içeriği ham HTML olarak render edilmez (`dangerouslySetInnerHTML` yok). Tek istisna: statik JSON-LD, `<` kaçışlanarak (D-019).
+- Next.js 16 önceki sürümlerden farklıdır: kod yazmadan önce `apps/web/node_modules/next/dist/docs/` altındaki ilgili rehber okunur (`apps/web/AGENTS.md`).
+- Renkler yalnızca token'lardan (`globals.css` → `@theme`); Tailwind varsayılan paleti kapalıdır. Yeni renk eklenirse `src/design/contrast-pairs.ts`'e kontrast çifti de eklenir.
 - Türkçe büyük/küçük harf dönüşümleri `toLocaleUpperCase('tr-TR')` / `toLocaleLowerCase('tr-TR')`; sıralama `Intl.Collator('tr')`; tarih/saat `Europe/Istanbul`.
 - Hata akışı: hata kodu → uygulama hata türü → Türkçe, eyleme dönük kullanıcı mesajı. Ham hata/stack kullanıcıya gösterilmez.
 - Log'lar yapılandırılmış ve PII içermez (uid kabul, e-posta/metin/belge içeriği yok).
@@ -194,7 +196,7 @@ Kaynak: `claude-api` skill'i (2026-09-25'te okundu). Faz 6'da kod yazılmadan ö
 
 - Landing SSG; uygulama rotalarında kod bölme.
 - Firestore: indeksli, sayfalı sorgular; tam koleksiyon taraması yok; dinleyiciler ekrandan çıkınca kapatılır.
-- Paket boyutu bütçesi ve Lighthouse hedefleri Faz 1'de belirlenip Memory Bank'e yazılır.
+- Lighthouse hedefleri ve paket bütçesi: Memory Bank §2.2 (Performans ≥ 90, Erişilebilirlik = 100, En iyi uygulamalar ≥ 95, SEO ≥ 95, CLS ≤ 0,1, TBT ≤ 200 ms, LCP ≤ 2,5 sn; ana sayfa ≤ 300 KB).
 
 ## 12. SEO kuralları (landing)
 

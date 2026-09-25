@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 0 (tamamlandı, onay bekliyor)**
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 2** (Faz 0 ve Faz 1 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -13,12 +13,38 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 
 | Alan | Durum |
 |---|---|
-| Faz | 0 — Dokümantasyon temeli + skill keşfi: **tamamlandı, kullanıcı onayı bekliyor** |
-| Uygulama kodu | Yok (Faz 0 kuralı) |
-| Repo | Başlangıçta boştu (commit yok, uzak repoda dal yok) |
-| Çalışma dalı | `claude/upbeat-maxwell-9mivgs` |
-| Ortam | Node 22, npm 10, pnpm 10, Java (emulator için) mevcut; Firebase CLI kurulu değil; Chromium + Playwright hazır (`/opt/pw-browsers`) |
+| Faz 0 | Tamamlandı. Kullanıcı "otomatik devam" dedi; açık sorulara yanıt verilmediği için geçici varsayılanlar uygulanıyor (D-012) |
+| Faz 1 | **Tamamlandı**: tasarım token'ları, bileşen kütüphanesi + `TearOffStrip`, `/tasarim` galerisi, landing, yasal sayfa taslakları, SEO, testler |
+| Faz 2 | Başlıyor |
+| Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
+| Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`) |
+| Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
+| Ortam | Node 22, pnpm 10, Java mevcut; Firebase CLI global kurulu değil; Chromium `/opt/pw-browsers/chromium` (Playwright için `PW_CHROMIUM_PATH`) |
 | Firebase projeleri | Yok (S-30) |
+
+### 2.1 Komutlar (`apps/web`)
+
+| Komut | Açıklama |
+|---|---|
+| `pnpm dev` | Geliştirme sunucusu |
+| `pnpm build` | Üretim derlemesi (tip kontrolü dahil) |
+| `pnpm lint` / `pnpm typecheck` | ESLint 9 (flat config) / `tsc --noEmit` |
+| `pnpm test` | Vitest birim testleri (`src/**/*.test.ts`) |
+| `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:e2e` | Playwright + axe; önce `pnpm build` gerekir; 360/768/1440 px projeleri |
+
+### 2.2 Faz 1 kalite ölçümleri (2026-09-25)
+
+Lighthouse 13.5 (mobil emülasyon, simüle yavaş 4G), indeksleme açık derlemeyle ölçüldü:
+
+| Sayfa | Performans | Erişilebilirlik | En iyi uygulamalar | SEO | LCP | CLS | TBT |
+|---|---|---|---|---|---|---|---|
+| `/` | 97 | 100 | 100 | 100 | 2,6 sn | 0 | 50 ms |
+| `/aydinlatma-metni` | 97 | 100 | 100 | 100 | 2,5 sn | 0 | 40 ms |
+| `/tasarim` | 96 | 100 | 100 | 63 (bilerek `noindex`) | 2,6 sn | 0 | 100 ms |
+
+**Hedefler (bundan sonra her faz için):** Performans ≥ 90, Erişilebilirlik = 100, En iyi uygulamalar ≥ 95, SEO ≥ 95 (indekslenen sayfalar), CLS ≤ 0,1, TBT ≤ 200 ms, LCP ≤ 2,5 sn. **LCP sınırda** (2,5–2,6 sn; LCP öğesi hero paragrafı, render gecikmesi ~130 ms) → Faz 13'te izlenecek.
+**Paket bütçesi (ana sayfa, aktarılan):** toplam ≤ 300 KB (ölçülen 271), JS ≤ 160 KB (142), CSS ≤ 16 KB (8), font ≤ 100 KB (88).
+axe (WCAG 2.2 AA etiketleri): tüm sayfalarda 0 ihlal (Playwright, 3 görünüm).
 
 ## 3. Active Skills
 
@@ -29,9 +55,9 @@ Keşif tarihi: 2026-09-25. "Active" = projede kullanılacak; "Koşullu" = yalnı
 | `allinone` | Kullanıcı özel skill'i (`~/.claude/skills/synced/…/allinone/SKILL.md`) | Tüm fazlarda koordinasyon: önce anla → skill seç → planla/uygula/doğrula; SOLID, QA atlama yok, yıkıcı işlemde güvenli davran, dış bilgiyi doğrula, olmayan skill'i çalıştırmış gibi yapma | Active |
 | `claude-api` | Yerleşik (Claude Code) | Faz 6 (`parseNeed`, `AIConnector`), Faz 13 (maliyet), Faz 14 (kota/alarm). Kurallar `AI_Guidelines.md` §7'ye işlendi | Active |
 | `security-review` | Yerleşik | Her faz sonunda bekleyen değişikliklerin güvenlik incelemesi; özellikle Faz 2–6, 10–14 | Active |
-| `code-review` | Yerleşik | Her faz sonunda doğruluk incelemesi | Active |
+| `code-review` | Yerleşik | Her faz sonunda doğruluk incelemesi (Faz 1: çalıştırıldı, 3 bulgu düzeltildi) | Active |
 | `simplify` | Yerleşik | Kod içeren faz sonlarında sadeleştirme/yeniden kullanım | Active |
-| `run` | Yerleşik | Faz 1'den itibaren uygulamayı başlatıp değişikliği gerçek tarayıcıda doğrulama | Active |
+| `run` | Yerleşik | Faz 1'den itibaren uygulamayı başlatıp değişikliği gerçek tarayıcıda doğrulama. Faz 1'de doğrulama doğrudan Playwright (ekran görüntüsü + e2e) ile yapıldı | Active |
 | `startup-hook-skill` (session-start-hook) | Kullanıcı düzeyi (`~/.claude/skills/session-start-hook`) | Faz 2: Claude Code web oturumlarında bağımlılık kurulumu, test ve lint'in çalışması için SessionStart hook | Active (Faz 2) |
 | `init` | Yerleşik | Faz 2 sonrası `CLAUDE.md`'nin kod tabanına göre güncellenmesi | Koşullu |
 | `pdf` | Anthropic skill'i | Faz 4: test fixture PDF'leri üretme ve PDF yapısını inceleme (Python araçları). Üretimdeki doğrulama Node tarafında yazılır | Koşullu |
@@ -220,6 +246,71 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: —
 - Risk: Yanlış bölge → KVKK/gecikme sorunu ve taşıma maliyeti.
 
+**D-012 — "Otomatik devam" ve geçici varsayılanlar**
+- Decision: Kullanıcı Faz 0 sonunda yalnızca "otomatik devam" dedi. Sorulan kararlar (S-01, S-22, S-23, S-24, S-25, S-27) için ÖNERİ'ler geçici olarak uygulandı: Next.js + TS + Tailwind; yalnızca açık tema; landing CTA'sı veri toplamayan yer tutucu; `TearOffStrip` = "İlgileniyorum" / "Kaydet"; token önerisi (aşağıda); eksik skill'ler için genel en iyi uygulama.
+- Why: Otomatik devam talimatı; kararlar geri alınabilir.
+- Alternative: Her kararda durup sormak.
+- Risk: Kullanıcı farklı karar verirse ilgili bileşen/sayfa güncellenir. `main` dalı oluşturma ve PR açma **açık izin gerektirdiği için yapılmadı**.
+
+**D-013 — Tasarım token'ları (geçici, S-25)**
+- Decision: zemin `#F7F5EF`, kart `#FFFFFF`, çukur yüzey `#EFECE3`, metin `#1C2B24`, ikincil metin `#56615B`, ana `#1F4D3A` (hover `#173B2C`, yumuşak `#E4EEE8`), kehribar `#D9922B` **yalnızca dekoratif**, kehribar metin `#8A5A12`, kehribar yumuşak `#FBF1E1`, çizgi `#E4DFD3`, form kenarlığı `#7D8781`, hata `#A8322A` / `#FBEAE8`, odak `#1F4D3A` (koyu bölümde beyaz). Font: Source Sans 3 (`latin` + `latin-ext`, `next/font` ile kendi sunucumuzdan).
+- Why: Önerilen kehribar beyaz üzerinde 2,59:1 (metin için yetersiz) → metin için koyu ton eklendi; form kenarlığı için 3:1 (WCAG 1.4.11) sağlayan ton eklendi. Tailwind varsayılan paleti `--color-*: initial` ile kapatıldı; bileşenler yalnızca token kullanabilir.
+- Alternative: Inter / IBM Plex Sans (Türkçe destekli); kehribarı metinde hiç kullanmamak.
+- Risk: Düşük. Kontrast `src/design/tokens.test.ts` ile 26 çift üzerinden otomatik doğrulanıyor.
+
+**D-014 — Bileşen galerisi**
+- Decision: Storybook yerine uygulama içinde `/tasarim` rotası (noindex, `robots.txt`'te engelli).
+- Why: Ek bağımlılık yok; aynı derleme ve aynı axe/Playwright testleri galeriyi de kapsıyor.
+- Alternative: Storybook.
+- Risk: Galeri üretimde erişilebilir (gizli bilgi içermez); istenirse Faz 14'te prod'da kapatılır.
+
+**D-015 — URL ve dil**
+- Decision: Herkese açık sayfa yolları Türkçe (`/aydinlatma-metni`, `/gizlilik-politikasi`, `/kullanim-sartlari`, `/cerez-politikasi`); kod tanımlayıcıları İngilizce.
+- Why: Türkçe kitle ve SEO; yol metni tanımlayıcı değil içeriktir.
+- Alternative: İngilizce yollar.
+- Risk: Yok.
+
+**D-016 — İndeksleme varsayılan kapalı**
+- Decision: `NEXT_PUBLIC_ALLOW_INDEXING=true` ve `NEXT_PUBLIC_SITE_URL` verilmedikçe tüm sayfalar `noindex` ve `robots.txt` her şeyi engeller.
+- Why: Yasal metinler taslak, alan adı belirsiz (S-31); yayına hazır olmayan ürünün indekslenmemesi.
+- Alternative: Varsayılan açık.
+- Risk: Yayında bu iki değişkenin ayarlanması unutulmamalı (Faz 14 kontrol listesi).
+
+**D-017 — Araç sürümleri**
+- Decision: TypeScript 6.0.x (7.0 değil), ESLint 9.39 (10 değil), Playwright 1.63 + sistem Chromium'u (`PW_CHROMIUM_PATH`).
+- Why: `typescript-eslint` TS `<6.1.0` destekliyor; `eslint-plugin-react` ESLint `^9.7`'ye kadar destekliyor. Ortamdaki Chromium Playwright'ın beklediği yapıdan farklı olduğu için yürütülebilir yol veriliyor; CI'da Playwright kendi tarayıcısını kurar.
+- Alternative: TS 7 (yerel derleyici) — ekosistem desteği gelince yeniden değerlendirilir.
+- Risk: Düşük.
+
+**D-018 — Güvenlik başlıkları ve CSP**
+- Decision: `next.config.ts` ile `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy`, `HSTS`; `X-Powered-By` kapalı. **CSP Faz 2'de** nonce tabanlı olarak eklenecek.
+- Why: Next.js App Router satır içi betikleri için sıkı CSP nonce gerektirir; oturum/Firebase alan adları Faz 2'de netleşir.
+- Alternative: Şimdi `'unsafe-inline'` ile zayıf CSP.
+- Risk: Faz 2'ye kadar CSP yok (yalnızca statik landing yayında değil).
+
+**D-019 — JSON-LD istisnası**
+- Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
+- Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
+- Alternative: JSON-LD kullanmamak.
+- Risk: Düşük; içerik sabit ve kaçışlı.
+
+## 8.1 Bağımlılıklar
+
+| Paket | Sürüm | Lisans | Gerekçe | Bakım |
+|---|---|---|---|---|
+| `next` | 16.3.6 | MIT | Web framework (S-01 geçici) | Aktif (Vercel) |
+| `react`, `react-dom` | 19.3.0 | MIT | UI | Aktif (Meta) |
+| `tailwindcss`, `@tailwindcss/postcss` | 4.3.3 | MIT | Token tabanlı stil | Aktif |
+| `postcss` | 8.5 | MIT | Tailwind derleme hattı | Aktif |
+| `typescript` | 6.0.3 | Apache-2.0 | Tip güvenliği (D-017) | Aktif (Microsoft) |
+| `eslint`, `eslint-config-next` | 9.39 / 16.3.6 | MIT | Lint (Next.js önerisi) | Aktif |
+| `vitest` | 5.0.2 | MIT | Birim test | Aktif |
+| `@playwright/test` | 1.63.0 | Apache-2.0 | E2E | Aktif (Microsoft) |
+| `@axe-core/playwright` (+ `axe-core`) | 4.13.0 | MPL-2.0 | Otomatik erişilebilirlik testi; yalnızca geliştirme bağımlılığı, dağıtılmaz | Aktif (Deque) |
+| `@types/node`, `@types/react`, `@types/react-dom` | — | MIT | Tip tanımları | Aktif |
+
+Font: Source Sans 3 (SIL Open Font License 1.1), `next/font/google` ile derleme anında indirilip kendi sunucumuzdan servis edilir; tarayıcı Google'a istek atmaz.
+
 ## 9. Tamamlanan işler
 
 - [x] Skill kaynakları tarandı (repo, kullanıcı düzeyi, synced, plugin, yerleşik, `allinone` kataloğu).
@@ -231,11 +322,24 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - [x] `.gitignore` (sır koruması) ve `CLAUDE.md` (kural yönlendirmesi).
 - [x] Belirsizlikler (S-01…S-30) iki dokümana taşındı.
 
+**Faz 1 (2026-09-25)**
+- [x] Tasarım token'ları `apps/web/src/app/globals.css` (`@theme`); 26 kontrast çifti `src/design/tokens.test.ts` ile doğrulanıyor.
+- [x] Bileşenler (`src/components/ui`): Button/ButtonLink, IconButton, Icon (24 ikon, bağımlılıksız), Card, Tag, Chip, Avatar (tr-TR baş harf), Badge/VerifiedBadge, Banner, Tabs (WAI-ARIA, ok/Home/End), TextField/TextArea (sayaç, hata ilişkilendirme), FileDropzone (PDF türü + boyut + `%PDF-` imzası), UploadProgress, Modal/Sheet (yerel `<dialog>`), Toast (canlı bölge), Skeleton/LoadingRegion, EmptyState, ErrorState.
+- [x] İmza bileşen `TearOffStrip` + `NeedCard` + `MatchCard` (`src/components/need`).
+- [x] `/tasarim` bileşen galerisi (noindex).
+- [x] Landing: hero (statik örnek dönüşüm), Nasıl çalışır (Python örneği), Doğrulama vaadi, dört bölüm sekmeleri, şeffaf eşleşme, Gizlilik/KVKK, SSS, kapanış; header (içeriğe geç bağlantısı, mobil menü), footer.
+- [x] Yasal sayfa taslakları (TASLAK bandı + `[hukuk onayı bekleniyor]` alanları): Aydınlatma Metni (KVKK md. 10–11 yapısı), Gizlilik Politikası, Kullanım Şartları, Çerez Politikası.
+- [x] SEO: metadata, OG, kanonik URL, `sitemap.xml`, `robots.txt`, WebSite JSON-LD; indeksleme varsayılan kapalı (D-016).
+- [x] Güvenlik başlıkları (D-018).
+- [x] Testler: Vitest 40 test; Playwright 70 test (3 görünüm, axe WCAG 2.2 AA, klavye, taşma, başlıklar, robots).
+- [x] Lighthouse ölçümü (§2.2).
+- [x] Faz sonu `code-review` (medium): 3 bulgu (robots testi gevşekti, Modal `onClose` çift çağrı, Tabs geçersiz varsayılan sekme) → üçü de düzeltildi ve testle doğrulandı.
+
 ## 10. Sonraki adımlar
 
-1. Kullanıcı Faz 0'ı onaylar; öncelikli kararlar: **S-01** (framework), **S-25/S-22/S-24** (tasarım), **S-23** (landing CTA), **S-27** (eksik skill'ler).
-2. Faz 1: token önerisi → onay → temel bileşenler + `TearOffStrip` → landing → yasal sayfa iskeletleri (TASLAK) → SEO → Lighthouse/axe/responsive testleri.
-3. Faz 1 başında Lighthouse hedef değerleri ve paket boyutu bütçesi bu dosyaya yazılır.
+1. Faz 2: `packages/contracts`, `functions/`, `firebase/` (default deny Rules + emulator), connector arayüzleri + mock'lar, hata eşleme, `.env.example`, CSP (D-018), CI (GitHub Actions), SessionStart hook.
+2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31.
+3. PR açılabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
 ## 11. Açık sorular
 
@@ -273,9 +377,11 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | S-28 | Anthropic veri yerleşimi | `us`/`global` dışında seçenek yok → yurt dışı aktarım; PII maskeleme |
 | S-29 | Ürün başarı metrikleri | Tanımlı değil |
 | S-30 | Firebase projeleri / varsayılan dal | Yok; Faz 2'ye kadar emulator |
+| S-31 | Alan adı (kanonik URL, sitemap) | `NEXT_PUBLIC_SITE_URL` ile verilecek; yoksa `http://localhost:3000` ve indeksleme kapalı |
 
 ## 12. Değişiklik günlüğü
 
 | Tarih | Faz | Değişiklik |
 |---|---|---|
 | 2026-09-25 | 0 | Memory Bank oluşturuldu; skill keşfi ve Faz 0 dokümanları |
+| 2026-09-25 | 1 | Tasarım sistemi, landing, yasal taslaklar, SEO, testler, Lighthouse; D-012…D-019 |
