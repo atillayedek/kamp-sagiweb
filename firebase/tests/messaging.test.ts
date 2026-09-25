@@ -19,6 +19,21 @@ beforeAll(async () => {
     await setDoc(doc(db, "conversations/ab/messages/m1"), { senderUid: "odtuA", text: "Selam" });
     await setDoc(doc(db, "notifications/odtuA/items/n1"), { type: "match", payload: {}, read: false });
     await setDoc(doc(db, "blocks/ituC/blocked/odtuA"), { createdAt: new Date() });
+    await setDoc(doc(db, "conversations/bd"), { participants: ["odtuB", "odtuD"] });
+    await setDoc(doc(db, "blocks/odtuB/blocked/odtuD"), { createdAt: new Date() });
+    await setDoc(doc(db, "conversations/ae"), { participants: ["odtuA", "ituE"] });
+    await setDoc(doc(db, "conversations/grup"), { participants: ["odtuA", "odtuB", "odtuD"] });
+    const profiles: Array<[string, string, string]> = [
+      ["odtuA", "odtu", "campus"],
+      ["odtuB", "odtu", "campus"],
+      ["odtuD", "odtu", "campus"],
+      ["ituC", "itu", "campus"],
+      ["ituE", "itu", "everyone"],
+    ];
+    for (const [id, universityId, allowFrom] of profiles) {
+      await setDoc(doc(db, `users/${id}`), { universityId });
+      await setDoc(doc(db, `userPrivate/${id}`), { messaging: { allowFrom } });
+    }
   });
 });
 
@@ -56,6 +71,20 @@ describe("conversations ve messages", () => {
 
   it("engelleyen tarafa mesaj gönderilemez", async () => {
     await assertFails(setDoc(doc(a.odtuA, "conversations/ac/messages/m6"), message("odtuA")));
+  });
+
+  it("ilk katılımcı engellediğinde de mesaj gönderilemez", async () => {
+    await assertFails(setDoc(doc(a.odtuD, "conversations/bd/messages/m11"), message("odtuD")));
+    await assertFails(setDoc(doc(a.odtuB, "conversations/bd/messages/m12"), message("odtuB")));
+  });
+
+  it("alıcının mesajlaşma tercihi uygulanır", async () => {
+    await assertSucceeds(setDoc(doc(a.odtuA, "conversations/ae/messages/m13"), message("odtuA")));
+    await assertFails(setDoc(doc(a.ituE, "conversations/ae/messages/m14"), message("ituE")));
+  });
+
+  it("iki kişilik olmayan konuşmada mesaj gönderilemez", async () => {
+    await assertFails(setDoc(doc(a.odtuA, "conversations/grup/messages/m15"), message("odtuA")));
   });
 
   it("engelleyen de engellediği kişiye yazamaz", async () => {

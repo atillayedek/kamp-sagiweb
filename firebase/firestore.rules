@@ -15,13 +15,13 @@ service cloud.firestore {
     }
 
     function isModerator() {
-      return isSignedIn() && request.auth.token.moderator == true;
+      return isSignedIn() && request.auth.token.get('moderator', false) == true;
     }
 
     function isVerified() {
       return isSignedIn()
-        && request.auth.token.verified == true
-        && request.auth.token.universityId is string;
+        && request.auth.token.get('verified', false) == true
+        && request.auth.token.get('universityId', null) is string;
     }
 
     function myUniversity() {
@@ -82,7 +82,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isModerator() || sameUniversity(resource.data);
+      allow get: if isOwner(userId) || isModerator() || sameUniversity(resource.data);
+      allow list: if isModerator();
       allow write: if false;
     }
 
@@ -102,7 +103,7 @@ service cloud.firestore {
     }
 
     match /needs/{needId} {
-      allow read: if canSee(resource.data) || (isSignedIn() && resource.data.authorUid == uid());
+      allow read: if canSee(resource.data);
       allow write: if false;
 
       match /matches/{candidateUid} {
@@ -129,12 +130,7 @@ service cloud.firestore {
         && incoming().likeCount == 0
         && incoming().commentCount == 0
         && isNow(incoming().createdAt);
-      allow update: if isVerified()
-        && resource.data.authorUid == uid()
-        && changedKeys().hasOnly(['text', 'editedAt'])
-        && isText(incoming().text, 1, 1000)
-        && isNow(incoming().editedAt);
-      allow delete: if false;
+      allow update, delete: if false;
 
       match /comments/{commentId} {
         allow read: if canSee(post(postId));
@@ -143,12 +139,7 @@ service cloud.firestore {
           && incoming().authorUid == uid()
           && isText(incoming().text, 1, 500)
           && isNow(incoming().createdAt);
-        allow update: if isVerified()
-          && resource.data.authorUid == uid()
-          && changedKeys().hasOnly(['text', 'editedAt'])
-          && isText(incoming().text, 1, 500)
-          && isNow(incoming().editedAt);
-        allow delete: if false;
+        allow update, delete: if false;
       }
 
       match /likes/{likerUid} {
@@ -197,17 +188,20 @@ service cloud.firestore {
       allow write: if false;
 
       match /messages/{messageId} {
-        function participants() {
-          return conversation(conversationId).participants;
+        function canMessage(conv) {
+          let other = conv.participants[0] == uid() ? conv.participants[1] : conv.participants[0];
+          let allowFrom = get(/databases/$(database)/documents/userPrivate/$(other)).data.messaging.allowFrom;
+          return conv.participants.size() == 2
+            && uid() in conv.participants
+            && !blocked(other, uid())
+            && !blocked(uid(), other)
+            && (allowFrom == 'everyone'
+              || (allowFrom == 'campus' && get(/databases/$(database)/documents/users/$(other)).data.universityId == myUniversity()));
         }
 
-        allow read: if isVerified() && uid() in participants();
+        allow read: if isVerified() && uid() in conversation(conversationId).participants;
         allow create: if isVerified()
-          && uid() in participants()
-          && !blocked(participants()[0], uid())
-          && !blocked(participants()[1], uid())
-          && !blocked(uid(), participants()[0])
-          && !blocked(uid(), participants()[1])
+          && canMessage(conversation(conversationId))
           && incoming().keys().hasOnly(['senderUid', 'text', 'createdAt'])
           && incoming().senderUid == uid()
           && isText(incoming().text, 1, 2000)
@@ -236,16 +230,7 @@ service cloud.firestore {
 
     match /reports/{reportId} {
       allow read: if isModerator();
-      allow create: if isVerified()
-        && incoming().keys().hasOnly(['reporterUid', 'targetType', 'targetPath', 'reason', 'details', 'status', 'createdAt'])
-        && incoming().reporterUid == uid()
-        && incoming().targetType in ['user', 'need', 'post', 'comment', 'message']
-        && isText(incoming().targetPath, 3, 300)
-        && incoming().reason in ['spam', 'harassment', 'hate', 'inappropriate', 'impersonation', 'other']
-        && isText(incoming().details, 0, 500)
-        && incoming().status == 'open'
-        && isNow(incoming().createdAt);
-      allow update, delete: if false;
+      allow write: if false;
     }
 
     match /dataExports/{ownerUid}/jobs/{jobId} {

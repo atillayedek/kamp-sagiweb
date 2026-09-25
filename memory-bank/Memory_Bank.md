@@ -436,6 +436,12 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: Yazımların tamamını callable'a taşımak.
 - Risk: Gönderi/yorum silme Faz 9'da callable olarak eklenecek.
 
+**D-042 — Faz 5 rules incelemesi sonrası sıkılaştırmalar**
+- Decision: (1) Gönderi ve yorumlar değiştirilemez (raporlanan içeriğin kanıtı korunur; düzenleme gerekirse geçmişli callable). (2) Raporlar yalnızca callable ile (Faz 9): hedef varlığı + raporlayanın görebilmesi + anlık görüntü + tekrar engeli. (3) Mesajda alıcının `allowFrom` tercihi, tam 2 katılımcı ve "karşı taraf" üzerinden iki yönlü engel kontrolü (Rules'ta koşullu ifade + `let`). (4) `users` liste sorgusu yalnızca moderatöre (rehber çıkarılamaz). (5) İlan okumada doğrulama şartı istisnasız. (6) Konuşma listesi `updatedAt` ile sıralanır (oluşturmada yazılır). (7) Genel kulüp/etkinlik indeksleri. (8) Claim'ler `token.get(ad, varsayılan)` ile okunur.
+- Why: `code-review` (high) 10 bulgu; hepsi değerlendirildi, 9'u düzeltildi, 1'i (bildirimde `read` istisnası) spesifikasyona uygun olduğu için belgelendi (`CLAUDE.md`, `AI_Guidelines.md`).
+- Alternative: Düzenlemeye izin verip sürüm geçmişi tutmak.
+- Risk: Kullanıcılar gönderiyi düzeltemez (silip yeniden yazabilir — silme Faz 9 callable'ı).
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -541,6 +547,7 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - [x] Rules testleri 40 → 87: çapraz üniversite okuma/yazma/sorgu, doğrulanmamış/sahte claim/anonim, sayaç ve skor manipülasyonu, kimlik taklidi, zaman damgası, fazla alan, engelleme, bildirim, rapor, sunucuya özel koleksiyonlar.
 - [x] `firestore.indexes.json`: ilan, gönderi, kulüp, etkinlik, konuşma indeksleri.
 - [x] `docs/threat-model.md`: STRIDE tablosu ve artık riskler.
+- [x] Faz sonu `code-review` (high, rules odaklı): 10 bulgu → 9 düzeltme (D-042), 1 belgelenmiş istisna; rules testleri 87 → 94.
 
 ## 10. Sonraki adımlar
 

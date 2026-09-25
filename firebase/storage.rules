@@ -7,7 +7,7 @@ service firebase.storage {
     }
 
     function isModerator() {
-      return isSignedIn() && request.auth.token.moderator == true;
+      return isSignedIn() && request.auth.token.get('moderator', false) == true;
     }
 
     match /verification/{uid}/{fileName} {

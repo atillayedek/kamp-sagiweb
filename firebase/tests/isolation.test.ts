@@ -63,7 +63,20 @@ describe("needs — kampüs izolasyonu", () => {
   });
 });
 
+describe("needs — doğrulaması kalkmış yazar", () => {
+  it("doğrulanmamış yazar kendi ilanını bile okuyamaz", async () => {
+    const revoked = env.authenticatedContext("odtuA").firestore();
+    await assertFails(getDoc(doc(revoked, "needs/kampus")));
+    await assertFails(getDocs(query(collection(revoked, "needs"), where("authorUid", "==", "odtuA"))));
+  });
+});
+
 describe("needs/matches — skor yalnızca sunucuda", () => {
+  it("eşleşme listesini üçüncü kişi sorgulayamaz", async () => {
+    await assertFails(getDocs(collection(a.ituC, "needs/kampus/matches")));
+    await assertSucceeds(getDocs(collection(a.odtuA, "needs/kampus/matches")));
+  });
+
   it("aday kendi eşleşmesini, ilan sahibi adayı okur; üçüncü kişi okuyamaz", async () => {
     await assertSucceeds(getDoc(doc(a.odtuB, "needs/kampus/matches/odtuB")));
     await assertSucceeds(getDoc(doc(a.odtuA, "needs/kampus/matches/odtuB")));
@@ -128,16 +141,20 @@ describe("posts — görünürlük, sayaçlar ve kimlik", () => {
     await assertSucceeds(getDoc(doc(a.odtuB, "posts/genel")));
   });
 
-  it("yazar yalnızca metni düzenler; sayaçlara dokunamaz", async () => {
-    await assertSucceeds(updateDoc(doc(a.odtuA, "posts/kampus"), { text: "Düzeltildi", editedAt: serverTimestamp() }));
+  it("yayınlanan gönderi yazar dahil kimse tarafından değiştirilemez (rapor kanıtı korunur)", async () => {
+    await assertFails(updateDoc(doc(a.odtuA, "posts/kampus"), { text: "Düzeltildi", editedAt: serverTimestamp() }));
     await assertFails(updateDoc(doc(a.odtuA, "posts/kampus"), { likeCount: 999 }));
-    await assertFails(updateDoc(doc(a.odtuA, "posts/kampus"), { commentCount: 5, text: "x", editedAt: serverTimestamp() }));
-    await assertFails(updateDoc(doc(a.odtuA, "posts/kampus"), { visibility: "global", editedAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(a.odtuA, "posts/kampus"), { visibility: "global" }));
+    await assertFails(updateDoc(doc(a.odtuB, "posts/kampus"), { text: "Hack" }));
+    await assertFails(deleteDoc(doc(a.odtuA, "posts/kampus")));
   });
 
-  it("başkası düzenleyemez, kimse istemciden silemez", async () => {
-    await assertFails(updateDoc(doc(a.odtuB, "posts/kampus"), { text: "Hack", editedAt: serverTimestamp() }));
-    await assertFails(deleteDoc(doc(a.odtuA, "posts/kampus")));
+  it("gönderi liste sorguları görünürlük filtresi ister", async () => {
+    await assertSucceeds(getDocs(query(collection(a.odtuB, "posts"), where("universityId", "==", "odtu"))));
+    await assertSucceeds(getDocs(query(collection(a.ituC, "posts"), where("visibility", "==", "global"))));
+    await assertFails(getDocs(query(collection(a.ituC, "posts"), where("universityId", "==", "odtu"))));
+    await assertFails(getDocs(collection(a.odtuB, "posts")));
+    await assertFails(getDocs(query(collection(a.unverified, "posts"), where("visibility", "==", "global"))));
   });
 });
 
@@ -150,6 +167,12 @@ describe("posts/comments ve likes", () => {
   it("aynı üniversiteden öğrenci yorum yapar, başkası adına yapamaz", async () => {
     await assertSucceeds(setDoc(doc(a.odtuB, "posts/kampus/comments/y3"), { authorUid: "odtuB", text: "Katılıyorum", createdAt: serverTimestamp() }));
     await assertFails(setDoc(doc(a.odtuB, "posts/kampus/comments/y4"), { authorUid: "odtuA", text: "Taklit", createdAt: serverTimestamp() }));
+  });
+
+  it("yorum listesi gönderiyi göremeyene kapalı, yorum değiştirilemez", async () => {
+    await assertSucceeds(getDocs(collection(a.odtuB, "posts/kampus/comments")));
+    await assertFails(getDocs(collection(a.ituC, "posts/kampus/comments")));
+    await assertFails(updateDoc(doc(a.odtuB, "posts/kampus/comments/y1"), { text: "Değişti", editedAt: serverTimestamp() }));
   });
 
   it("genel gönderiye başka üniversiteden yorum yapılabilir", async () => {
@@ -185,9 +208,35 @@ describe("clubs ve events", () => {
     await assertFails(updateDoc(doc(a.odtuB, "clubs/satranc"), { memberCount: 500 }));
   });
 
+  it("kulüp ve etkinlik listeleri görünürlük filtresi ister", async () => {
+    await assertSucceeds(getDocs(query(collection(a.odtuB, "clubs"), where("universityId", "==", "odtu"))));
+    await assertFails(getDocs(query(collection(a.ituC, "clubs"), where("universityId", "==", "odtu"))));
+    await assertFails(getDocs(collection(a.ituC, "events")));
+    await assertSucceeds(getDocs(query(collection(a.ituC, "events"), where("visibility", "==", "global"))));
+    await assertFails(getDocs(collection(a.ituC, "clubs/satranc/members")));
+  });
+
   it("etkinliğe kendi adına katılır ve ayrılır", async () => {
     await assertSucceeds(setDoc(doc(a.odtuA, "events/turnuva/attendees/odtuA"), { joinedAt: serverTimestamp() }));
     await assertFails(setDoc(doc(a.ituC, "events/turnuva/attendees/ituC"), { joinedAt: serverTimestamp() }));
     await assertSucceeds(deleteDoc(doc(a.odtuA, "events/turnuva/attendees/odtuA")));
+  });
+});
+
+describe("users — öğrenci rehberi çıkarılamaz", () => {
+  beforeAll(async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users/odtuA"), { displayName: "Deniz", universityId: "odtu" });
+    });
+  });
+
+  it("aynı üniversiteden tekil profil okunur ama üniversite listesi sorgulanamaz", async () => {
+    await assertSucceeds(getDoc(doc(a.odtuB, "users/odtuA")));
+    await assertFails(getDocs(query(collection(a.odtuB, "users"), where("universityId", "==", "odtu"))));
+    await assertFails(getDocs(collection(a.odtuB, "users")));
+  });
+
+  it("moderatör listeleyebilir", async () => {
+    await assertSucceeds(getDocs(collection(a.moderator, "users")));
   });
 });

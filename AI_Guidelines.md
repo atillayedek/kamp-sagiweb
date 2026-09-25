@@ -61,7 +61,7 @@ Bir özellik, gerekiyorsa şunların **hepsi** uygulanıp doğrulandıktan sonra
 4. **Yetki kaynağı custom claim'dir.** `moderator` yetkisi yalnızca Admin SDK ile atanan custom claim'den gelir. İstemci bayrakları (`isAdmin` vb.) yetki değildir.
 5. **Üniversite izolasyonu Security Rules'ta zorlanır**, UI filtresiyle yetinilmez.
 6. **Varsayılan-reddet (default deny)** Rules; her koleksiyon için açık izin yazılır ve emulator testiyle doğrulanır.
-7. **İstemcinin yazamayacağı alanlar:** `verificationStatus`, `reputationScore`, `score`/`breakdown`/`reasons`, sayaçlar (`likeCount`, `commentCount`, `unreadCount` vb.), `notifications` içeriği, moderasyon kayıtları, custom claim'ler.
+7. **İstemcinin yazamayacağı alanlar:** `verificationStatus`, `reputationScore`, `score`/`breakdown`/`reasons`, sayaçlar (`likeCount`, `commentCount`, `unreadCount` vb.), `notifications` içeriği (sahibi yalnızca `read: true` yapabilir), moderasyon kayıtları, raporlar, custom claim'ler.
 8. **Öğrenci belgesi yüksek hassasiyetli kişisel veridir.** Yalnızca sahibi ve moderatör erişir; süreli saklanır; hesap silinince / red sonrası saklama politikasına göre silinir.
 9. **Veri minimizasyonu.** Claude'a giden metinden telefon/TCKN/IBAN/e-posta gibi kişisel veri kalıpları önce temizlenir/maskelenir.
 10. **Gerçek üniversite öğrencileri.** Doğrulanmamış hesap kampüs içeriğine ve eşleşmeye erişemez (Rules + Functions'ta zorunlu).

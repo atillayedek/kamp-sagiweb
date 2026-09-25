@@ -34,18 +34,8 @@ afterAll(async () => {
 });
 
 describe("reports", () => {
-  it("doğrulanmış öğrenci rapor oluşturur", async () => {
-    await assertSucceeds(setDoc(doc(a.odtuA, "reports/r1"), report()));
-  });
-
-  it("başkası adına, kapalı durumla veya bilinmeyen sebeple rapor oluşturulamaz", async () => {
-    await assertFails(setDoc(doc(a.odtuB, "reports/r2"), report()));
-    await assertFails(setDoc(doc(a.odtuA, "reports/r3"), { ...report(), status: "resolved" }));
-    await assertFails(setDoc(doc(a.odtuA, "reports/r4"), { ...report(), reason: "sevmedim" }));
-    await assertFails(setDoc(doc(a.odtuA, "reports/r5"), { ...report(), targetType: "admin" }));
-  });
-
-  it("doğrulanmamış kullanıcı rapor oluşturamaz", async () => {
+  it("istemci rapor oluşturamaz (hedef doğrulaması ve anlık görüntü için callable kullanılır)", async () => {
+    await assertFails(setDoc(doc(a.odtuA, "reports/r1"), report()));
     await assertFails(setDoc(doc(a.unverified, "reports/r6"), { ...report(), reporterUid: "yeni" }));
   });
 

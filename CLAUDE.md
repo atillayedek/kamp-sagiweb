@@ -9,7 +9,7 @@ Bu repoda çalışmaya başlamadan önce sırayla oku ve uygula:
 Kısa özet (ayrıntı `AI_Guidelines.md` §3):
 - Kullanıcıyla ve dokümanlarda Türkçe; kod tanımlayıcıları İngilizce.
 - Claude yalnızca Cloud Functions'tan çağrılır; tarayıcıda Anthropic izi olmaz.
-- Yetki yalnızca Firebase Auth custom claim'den gelir; skor, sayaç, doğrulama durumu ve bildirimler yalnızca sunucuda yazılır.
+- Yetki yalnızca Firebase Auth custom claim'den gelir; skor, sayaç, doğrulama durumu ve bildirimler yalnızca sunucuda yazılır (tek istisna: bildirim sahibi yalnızca `read: true` işaretleyebilir).
 - Hiçbir sır repoya, log'a veya dokümana yazılmaz.
 - Her faz sonunda Memory Bank güncellenir ve sonraki faz için onay istenir.
 

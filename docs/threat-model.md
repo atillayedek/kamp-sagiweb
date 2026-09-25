@@ -78,6 +78,10 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | T-19 | Eşzamanlı kararlar nedeniyle tutarsız yetki | Claim'ler commit sonrası; claim onarım callable'ı (D-037) | 4 |
 | T-20 | Belgenin kalıcı bağlantıyla sızması | `getDownloadURL` kullanılmaz; bellek içi blob önizleme (D-035) | 4 |
 | T-21 | Depolama kötüye kullanımı (çok sayıda yükleme) | 5 MB sınırı, App Check, reddedilen gönderimde anında silme, 24 saatlik yetim temizliği (D-036) | 4, 13 |
+| T-22 | Raporlanan içeriğin sonradan değiştirilerek delilin yok edilmesi | Gönderi/yorum değiştirilemez; rapor anında anlık görüntü (D-042) | 5, 9 |
+| T-23 | Sahte/kötü niyetli rapor hedefi (başka koleksiyon, görülemeyen içerik, spam) | Raporlar yalnızca callable; hedef doğrulaması ve tekrar engeli (D-042) | 5, 9 |
+| T-24 | Öğrenci rehberinin toplu çıkarılması | `users` liste sorgusu yalnızca moderatör (D-042) | 5 |
+| T-25 | Alıcının istemediği kişilerden mesaj alması | Rules'ta `allowFrom` + iki yönlü engel (D-042) | 5, 10 |
 
 ## 7. Artık riskler (Faz 5)
 
