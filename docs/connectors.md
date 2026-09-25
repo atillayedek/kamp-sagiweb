@@ -10,8 +10,8 @@ Web iş mantığı Firebase SDK'sına doğrudan bağlanmaz; `Connectors` arayüz
 |---|---|---|---|
 | `AuthConnector` | Oturumu izleme, token'ı zorla yenileyip claim'leri okuma, çıkış. Claim'ler **salt-okunur** ve `customClaimsSchema` ile doğrulanır | `FirebaseAuthConnector` (`onIdTokenChanged`, `getIdTokenResult`) | `InMemoryAuthConnector` |
 | `FunctionsConnector` | Callable çağrısı: istek ve yanıt `contracts` şemasıyla doğrulanır | `FirebaseFunctionsConnector` (`httpsCallable`) | `MockFunctionsConnector` |
-| `DocumentSource` | Belge okuma/izleme; her belge Zod şemasıyla ayrıştırılır, sözleşme dışı veri `AppError("internal")` olur | `FirebaseDocumentSource` (`getDoc`, `onSnapshot`) | `InMemoryDocumentSource` |
-| `DocumentWriter` | Rules'un istemciye izin verdiği dar alan güncellemeleri (ör. eşleşmeyi gizleme); her yazım Rules'ta alan bazlı doğrulanır | `FirebaseDocumentWriter` (`updateDoc`) | `InMemoryDocumentWriter` |
+| `DocumentSource` | Belge okuma/izleme, sorgu, imleçli sayfa (`queryPage`: `limit + 1` ile "daha var mı" bilgisi; `collectionGroup` seçeneği), collection-group sorgusu; her belge Zod şemasıyla ayrıştırılır, sözleşme dışı veri `AppError("internal")` olur | `FirebaseDocumentSource` (`getDoc`, `getDocs`, `startAfter`, `onSnapshot`) | `InMemoryDocumentSource` |
+| `DocumentWriter` | Rules'un istemciye izin verdiği dar yazımlar: `setDocument`, `updateFields`, `deleteDocument`; `serverTime` değeri sunucu zamanına çevrilir (Rules `== request.time`) | `FirebaseDocumentWriter` (`setDoc`, `updateDoc`, `deleteDoc`, `serverTimestamp`) | `InMemoryDocumentWriter` |
 | `StorageConnector` | İlerleme bildirimli ve iptal edilebilir yükleme | `FirebaseStorageConnector` (`uploadBytesResumable`) | `MockStorageConnector` |
 | `AnalyticsConnector` | Olay takibi — **BELİRSİZ (S-20)**; yalnızca rıza sonrası | — | `noopAnalytics` |
 

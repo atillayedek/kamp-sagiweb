@@ -111,7 +111,9 @@ export async function computeMatches(
   });
 
   const snapshot = await needRef.get();
-  if (!snapshot.exists || snapshot.get("status") !== "open") return result("skipped");
+  if (!snapshot.exists || snapshot.get("status") !== "open" || snapshot.get("matchStatus") === "done") {
+    return result("skipped");
+  }
   const parsedNeed = needSchema.safeParse(snapshot.data());
   if (!parsedNeed.success) {
     await needRef.update({ matchStatus: "failed" });

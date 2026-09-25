@@ -8,13 +8,16 @@ import type { z } from "zod";
 import { noopAnalytics } from "../analytics";
 import { AppError } from "../errors";
 import { parseOrThrow } from "../parse";
+import { serverTime } from "../types";
 import type {
   AuthConnector,
   Connectors,
+  Cursor,
   DocumentSource,
   DocumentWriter,
   FieldValue,
   FunctionsConnector,
+  PageOptions,
   QueryOptions,
   Session,
   StorageConnector,
@@ -108,6 +111,40 @@ export class InMemoryDocumentSource implements DocumentSource {
     return (options.limit ? items.slice(0, options.limit) : items) as Array<{ id: string; data: z.output<S> }>;
   }
 
+  async queryPage<S extends z.ZodType>(path: string, options: PageOptions, schema: S) {
+    const all = options.collectionGroup
+      ? await this.queryCollectionGroup(path, { ...options, limit: undefined }, schema)
+      : await this.queryCollection(path, { ...options, limit: undefined }, schema);
+    const start = typeof options.after === "number" ? options.after : 0;
+    const items = all.slice(start, start + options.limit);
+    const end = start + items.length;
+    return { items, next: end < all.length ? (end as unknown as Cursor) : null };
+  }
+
+  async queryCollectionGroup<S extends z.ZodType>(collectionId: string, options: QueryOptions, schema: S) {
+    const paths = [...this.documents.keys()].filter((key) => {
+      const parts = key.split("/");
+      return parts.length >= 2 && parts.length % 2 === 0 && parts.at(-2) === collectionId;
+    });
+    const parents = [...new Set(paths.map((key) => key.split("/").slice(0, -1).join("/")))];
+    const results = await Promise.all(parents.map((parent) => this.queryCollection(parent, { ...options, limit: undefined }, schema)));
+    let items = results.flatMap((list, index) => list.map((item) => ({ ...item, path: `${parents[index]}/${item.id}` })));
+    if (options.orderBy) {
+      const [field, direction] = options.orderBy;
+      items = items.sort(
+        (a, b) =>
+          String((a.data as Record<string, unknown>)[field]).localeCompare(String((b.data as Record<string, unknown>)[field])) *
+          (direction === "asc" ? 1 : -1),
+      );
+    }
+    return options.limit ? items.slice(0, options.limit) : items;
+  }
+
+  remove(path: string) {
+    this.documents.delete(path);
+    for (const listener of this.listeners.get(path) ?? []) listener();
+  }
+
   watchDocument<S extends z.ZodType>(
     path: string,
     schema: S,
@@ -161,24 +198,40 @@ export class MockStorageConnector implements StorageConnector {
   }
 }
 
+function resolveFields(fields: Record<string, FieldValue>) {
+  return Object.fromEntries(
+    Object.entries(fields).map(([key, value]) => [key, value === serverTime ? new Date().toISOString() : value]),
+  );
+}
+
 export class InMemoryDocumentWriter implements DocumentWriter {
-  readonly writes: Array<{ path: string; fields: Record<string, FieldValue> }> = [];
+  readonly writes: Array<{ kind: "set" | "update" | "delete"; path: string; fields?: Record<string, FieldValue> }> = [];
 
   constructor(private readonly documents: InMemoryDocumentSource) {}
+
+  async setDocument(path: string, fields: Record<string, FieldValue>) {
+    this.writes.push({ kind: "set", path, fields });
+    this.documents.set(path, resolveFields(fields));
+  }
 
   async updateFields(path: string, fields: Record<string, FieldValue>) {
     const current = this.documents.peek(path);
     if (!current || typeof current !== "object") throw new AppError("not-found", "Belge bulunamadı.");
-    this.writes.push({ path, fields });
-    this.documents.set(path, { ...current, ...fields });
+    this.writes.push({ kind: "update", path, fields });
+    this.documents.set(path, { ...current, ...resolveFields(fields) });
+  }
+
+  async deleteDocument(path: string) {
+    this.writes.push({ kind: "delete", path });
+    this.documents.remove(path);
   }
 }
 
-const unsupportedWriter: DocumentWriter = {
-  async updateFields() {
-    throw new Error("Özel bir DocumentSource verildiğinde writer da verilmelidir.");
-  },
+const unsupported = async () => {
+  throw new Error("Özel bir DocumentSource verildiğinde writer da verilmelidir.");
 };
+
+const unsupportedWriter: DocumentWriter = { setDocument: unsupported, updateFields: unsupported, deleteDocument: unsupported };
 
 export function createMockConnectors(overrides: Partial<Connectors> = {}): Connectors {
   const documents = overrides.documents ?? new InMemoryDocumentSource();

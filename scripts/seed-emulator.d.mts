@@ -11,3 +11,23 @@ export function createVerifiedStudent(input: {
   interests?: string[];
   skills?: string[];
 }): Promise<string>;
+export function createNeed(input: {
+  id?: string;
+  authorUid: string;
+  universityId: string;
+  visibility?: "campus" | "global";
+  title: string;
+  category?: string;
+  tags?: string[];
+  requiredSkills?: string[];
+  createdAt?: Date;
+  matchStatus?: "pending" | "done";
+  status?: "open" | "closed";
+}): Promise<string>;
+export function createSuggestedMatch(input: {
+  needId: string;
+  needAuthorUid: string;
+  candidateUid: string;
+  score: number;
+  reasons: string[];
+}): Promise<void>;

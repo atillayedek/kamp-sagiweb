@@ -1,6 +1,6 @@
 # KampüsAğı Web — Proje Hedefleri
 
-> Durum: **Faz 0–7 tamamlandı; Faz 8 sürüyor** · Son güncelleme: 2026-09-25
+> Durum: **Faz 0–8 tamamlandı; Faz 9 sürüyor** · Son güncelleme: 2026-09-25
 > Bu dosyadaki "ÖNERİ" etiketli her şey kesin karar değildir. "BELİRSİZ / KARAR BEKLİYOR" maddeleri §11'de listelidir; kararlar `memory-bank/Memory_Bank.md` içinde kayıt altına alınır.
 
 ---
@@ -171,7 +171,7 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-21 | PWA / mobil tarayıcı deneyimi | BELİRSİZ | Mobile-first kesin; PWA ayrı karar | Faz 8 |
 | S-22 | Koyu tema | BELİRSİZ | Yalnızca açık tema | Faz 1 |
 | S-23 | Landing CTA: kayıt / erken erişim / waitlist / iOS mağaza linki | BELİRSİZ | CTA'lar yer tutucu; veri toplama akışı onaysız eklenmez | Faz 1 |
-| S-24 | `TearOffStrip` şerit aksiyonları | BELİRSİZ | ÖNERİ: "İlgileniyorum" / "Kaydet" | Faz 1 |
+| S-24 | `TearOffStrip` şerit aksiyonları | GEÇİCİ UYGULANDI | "İlgileniyorum" (ilan sahibine bildirim) / "Kaydet" (kişisel liste) — D-065; onay bekliyor | Faz 8 |
 | S-25 | Tasarım token'larının kesin değerleri | BELİRSİZ | Faz 1'de ÖNERİ sunulur, kontrastla doğrulanır | Faz 1 |
 | S-26 | Test/CI araçları | ÖNERİ | Vitest, Emulator + rules-unit-testing, Playwright, axe, Lighthouse CI, GitHub Actions | Faz 2 |
 | S-27 | Katalogdaki (allinone) yerel skill'ler bu bulut ortamında yok (ör. `office-hours`, `frontend-design`, `design:accessibility-review`, `searchfit-seo:*`, `legal:*`, Firebase plugin'i) | KARAR BEKLİYOR | Genel en iyi uygulama + resmi doküman doğrulaması; istenirse eksik alanlar için proje skill'i yazılır (Memory Bank → Missing Skills) | Faz 1 öncesi |

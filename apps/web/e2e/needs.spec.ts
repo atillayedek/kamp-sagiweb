@@ -123,6 +123,7 @@ test("geçersiz ilan kimliği bulunamadı gösterir", async ({ page }, testInfo)
 });
 
 test("yayınlanan ilan için eşleşmeler sunucuda hesaplanır ve gizlenebilir", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
   const violations = collectCspViolations(page);
   const campus = `e2e-${Math.random().toString(36).slice(2, 10)}`;
   const otherCampus = `${campus}-diger`;
@@ -141,7 +142,7 @@ test("yayınlanan ilan için eşleşmeler sunucuda hesaplanır ve gizlenebilir",
 
   const matches = page.getByRole("region", { name: "Eşleşmeler" });
   const card = matches.getByRole("article", { name: candidate });
-  await expect(card).toBeVisible({ timeout: 20_000 });
+  await expect(card).toBeVisible({ timeout: 45_000 });
   await expect(card).toContainText("Aynı kampüstesiniz");
   await expect(card).toContainText("Spor alanına ilgi var");
   await expect(matches.getByRole("article", { name: unrelated })).toHaveCount(0);

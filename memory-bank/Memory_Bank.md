@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 8** (Faz 0–7 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 9** (Faz 0–8 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -21,7 +21,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | Faz 5 | **Tamamlandı**: veri modeli kesinleşti (`docs/data-model.md`), tüm koleksiyonlar için alan bazlı Rules, kampüs/genel görünürlük, indeksler, STRIDE |
 | Faz 6 | **Tamamlandı**: ihtiyaç yazma → Claude ile yapılandırma (yalnızca sunucu) → önizleme/düzenleme → yayınlama; PII maskeleme, kota + günlük token tavanı, idempotent taslaklar, ilan detay sayfası |
 | Faz 7 | **Tamamlandı**: sunucu tarafı eşleştirme motoru (tetikleyici, ilgi/beceri tabanlı aday havuzu, normalize skor, Türkçe gerekçeler, bildirim), ilan sahibine eşleşme listesi + gizleme; CI yeniden yeşil |
-| Faz 8 | Başlıyor (Keşfet: ilan akışı, sana uygun ilanlar, `TearOffStrip` aksiyonları) |
+| Faz 8 | **Tamamlandı**: Keşfet — kampüs/genel/kaydedilen akışları (imleçli sayfalama), "Sana uygun ilanlar", "İlgileniyorum"/"Kaydet" (Rules + bildirim), ilan kapatma, ilgilenenler listesi |
+| Faz 9 | Başlıyor (Topluluklar: gönderi/yorum/beğeni, kulüp/etkinlik, rapor ve silme callable'ları) |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
 | Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
@@ -592,6 +593,57 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Why: Bileşenlerin Firebase SDK'sına doğrudan bağlanmaması (connector kuralı, §4.1).
 - Risk: Yok.
 
+**D-064 — Keşfet akışları**
+- Decision: Üç sekme var. Yalnızca etkin sekme yüklenir (`Tabs lazy`); en yeni ilan önce gelir; sayfalar 20'şerlik ve imleçlidir.
+  - Kampüsüm: `universityId == benim && status == open`; kendi üniversitemin kampüs ve genel ilanları.
+  - Tüm üniversiteler: `visibility == global && status == open`.
+  - Kaydettiklerim: kapalı ilanlar da görünür (kayıt kaldırılabilsin diye).
+  - "Daha var mı" bilgisi `limit + 1` ile alınır; filtre sonrası boş kalan sayfalar otomatik atlanır (en fazla 5).
+- Why: Rules'un kanıtlayabildiği sorgu biçimleri, mevcut indeksler, gereksiz okuma yok (`code-review`).
+- Alternative: Tek birleşik akış (Rules'ta kanıtlanamaz: OR sorgusu).
+- Risk: Genel akışta başka kampüsün yazarı yalnızca "Doğrulanmış öğrenci" olarak görünür (D-069).
+
+**D-065 — "İlgileniyorum" ve "Kaydet" (S-24 geçici)**
+- Decision:
+  - `needs/{id}/interests/{uid}` ve `savedNeeds/{uid}/items/{needId}` istemcide, Rules ile yazılır. Kontroller: kendi kimliği, ilanı görebilme, ilan açık, kendi ilanı değil, iki yönde engel yok, `createdAt == request.time`.
+  - Durum her kart için iki doğrudan okumayla alınır; toplu yükleme ve üst sınır yok.
+  - Var olan belgeye tekrar yazım başarı sayılır (idempotent).
+  - Kapalı ilanda yalnızca geri alma (ilgiyi geri çek / kaydı kaldır) gösterilir.
+  - Butonlar meşgulken `aria-disabled` kullanılır, odak korunur.
+- Why: Callable gerektirmeyen basit, Rules'la test edilebilir etkileşim. `code-review`: 500'lük toplu yükleme hem pahalıydı hem sessizce yanlış durum gösteriyordu.
+- Alternative: Callable ile yazım; `users/{uid}` altında dizi.
+- Risk: Sayfa başına en fazla 40 ek okuma.
+
+**D-066 — İlgi bildirimi**
+- Decision: `triggers-notifyOnInterest` ilan sahibine `interest_{needId}_{uid}` bildirimini transaction içinde, yalnızca ilgi hâlâ varsa yazar. `triggers-withdrawOnInterestDeleted` ilgi silinince bildirimi kaldırır. Yeniden deneme var; olay yaşı sınırı 1 saat.
+- Why: `code-review`: geri alınan ilgi ilan sahibine sızıyordu (KVKK).
+- Risk: Aç/kapa gürültüsü (R-12).
+
+**D-067 — İlan kapatma**
+- Decision: İlan sahibi Rules ile yalnızca `open → closed` geçişi yapar (`status` + `updatedAt == request.time`); geri açma ve silme yok. Kapalı ilan akışlarda görünmez ve yeni ilgi almaz; eşleşmeler ve ilgi listesi sahibine görünmeye devam eder. Kapatınca odak açıklama metnine taşınır.
+- Why: Basit durum geçişi callable gerektirmiyor; Rules testli.
+- Risk: Yanlışlıkla kapatma geri alınamaz (onay penceresi var).
+
+**D-068 — "Sana uygun ilanlar"**
+- Decision: Adayın `suggested` eşleşmeleri collection-group sorgusuyla, sayfa sayfa (12'şer, en fazla 5 sayfa) okunur. Kapalı ilanlar ayıklanır, en fazla 6 öneri gösterilir; skor ve gerekçeler kartın altında.
+- Why: `code-review`: yalnızca ilk 12 kayda bakınca kapalı ilanlar listeyi boşaltabiliyordu.
+- Risk: 60'tan fazla kapalı eşleşmesi olan adayda eski açık öneriler görünmeyebilir.
+
+**D-069 — Yazar gösterimi**
+- Decision: İlanın üniversitesi izleyicininkinden farklıysa profil okunmaz, "Doğrulanmış öğrenci / Başka bir üniversite" gösterilir. Aynı kampüste profil okunamazsa "Öğrenci / Profil bilgisi alınamadı" gösterilir. Yazarlar akış boyunca önbellekte tutulur.
+- Why: `code-review`: kesin reddedilecek okumalar ve eksik profilin yanlışlıkla "başka üniversite" olarak etiketlenmesi.
+- Risk: Yok.
+
+**D-070 — Eşleştirmede `done` erken çıkışı**
+- Decision: `matchStatus == "done"` olan ilan için motor hiçbir şey yapmadan çıkar.
+- Why: `done` en son yazılır, yani iş tamamlanmıştır; tekrar teslimde gereksiz sorguları önler. e2e'de toplu tohumlanan ilanların tetikleyici kuyruğunu şişirmesini de azaltır.
+- Risk: Yeniden hesaplama gerekirse durum `pending` yapılmalı (henüz arayüzü yok).
+
+**D-071 — e2e tohumlama**
+- Decision: Keşfet testleri ilanları ve eşleşmeleri REST ile doğrudan tohumlar (`createNeed`, `createSuggestedMatch`). Tetikleyiciyle uçtan uca eşleşme `needs.spec.ts`'te test ediliyor. Tetikleyiciye bağlı test, dolu emulator kuyruğu için 45 sn bekleme payına sahip.
+- Why: Tam koşuda 66 tohum ilan tetikleyici kuyruğunu doldurup öneri testini zaman aşımına düşürdü (yerel tam koşuda görüldü).
+- Risk: Yok.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -762,13 +814,29 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - [x] Faz sonu `code-review`: 15 bulgunun 15'i düzeltildi (D-054…D-059, D-061, mock writer, profil okumalarının tek seferde yapılması, paralel okuma + alan seçimi, kategori etiketlerinin tek kaynağa taşınması).
 - [x] CI: run 8 (1321119) **yeşil** (Faz 4'ten beri ilk yeşil koşu; D-053).
 
+**Faz 8 (2026-09-25)**
+- [x] Connector:
+  - `queryPage`: imleç, `limit + 1`, collection-group seçeneği.
+  - `queryCollectionGroup`.
+  - `DocumentWriter`: `setDocument` / `deleteDocument` / `serverTime`.
+  - Mock karşılıkları ve testleri.
+- [x] Rules: ilan kapatma, `interests` (+ collection-group kendi okuması), `savedNeeds`; 18 yeni test (toplam 119). İndeks: `interests.uid` collection-group tek alan.
+- [x] Functions: ilgi bildirimi ve geri çekme tetikleyicileri (transaction); motorda `done` erken çıkışı.
+- [x] Web: Keşfet sayfası (D-064, D-068), `NeedMarksProvider` (D-065), `FeedNeedCard`, `NeedFeed`, "Sana uygun ilanlar". İlan detayında aksiyonlar, kapatma (D-067) ve "İlgilenenler". `TearOffStrip` kontrollü mod ve `aria-disabled`. `NeedCard` bağlantısı ve "Kapandı" etiketi. `Tabs` için `lazy`.
+- [x] Testler:
+  - Birim 259 (contracts 48, functions 105, web 106).
+  - Rules 119.
+  - Emulator 79 (functions 67, web 12).
+  - e2e 151 başarılı + 2 atlanan. Keşfet: akışlar, sekmeler, kaydet/ilgi, kalıcılık, ilgilenenler, kapatma, kapalı ilanı kayıttan çıkarma, 22 ilanla sayfalama, öneriler.
+- [x] Faz sonu `code-review`: 15 bulgunun 15'i düzeltildi (D-064…D-069, erişilebilirlik, KVKK envanteri).
+
 ## 10. Sonraki adımlar
 
-1. Faz 8: Keşfet. İçerik:
-   - Kampüs ve genel ilan akışı (görünürlük filtreli sorgular, sayfalama).
-   - "Sana uygun ilanlar" (collection-group sorgusu).
-   - `TearOffStrip` aksiyonları ("İlgileniyorum" / "Kaydet", S-24) ve bunların veri modeli.
-   - Ayrıca: ilan kapatma.
+1. Faz 9: Topluluklar. İçerik:
+   - Gönderi, yorum ve beğeni (Rules hazır; sayaçlar sunucu tetikleyicisiyle).
+   - Kulüp ve etkinlik oluşturma kararı ve listeleri.
+   - Rapor callable'ı: hedef doğrulama, anlık görüntü, tekrar engeli; moderatör kuyruğuna düşer.
+   - Gönderi ve yorum silme callable'ları.
 2. Kullanıcıdan bekleyen kararlar (D-012): S-01, S-04, S-11 (kategori listesi, D-050), S-17 (Firebase bölgesi), S-25, S-30/S-31, S-32, S-33 (canlı Claude değerlendirmesi ve effort taraması — gerçek maliyet).
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
@@ -812,7 +880,7 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | S-21 | PWA | Mobile-first kesin; PWA ayrı karar |
 | S-22 | Koyu tema | Yalnızca açık tema |
 | S-23 | Landing CTA | Yer tutucu |
-| S-24 | `TearOffStrip` aksiyonları | "İlgileniyorum" / "Kaydet" |
+| S-24 | `TearOffStrip` aksiyonları | "İlgileniyorum" / "Kaydet" uygulandı (D-065) |
 | S-25 | Token değerleri | Faz 1'de öneri |
 | S-26 | Test/CI araçları | Vitest, Emulator, Playwright, axe, Lighthouse CI, GitHub Actions |
 | S-27 | Eksik skill'ler | Genel en iyi uygulama; proje skill'i önerisi |
@@ -837,3 +905,4 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 6 | İhtiyaç yazma + Claude yapılandırma, PII maskeleme, kota/bütçe, taslak/yayın, ilan detayı; D-043…D-052 |
 | 2026-09-25 | 6 | CI düzeltmesi (PDF önizleme yeteneği); D-053 |
 | 2026-09-25 | 7 | Eşleştirme motoru, eşleşme görünürlüğü, bildirim, ilan sahibine liste; D-054…D-063 |
+| 2026-09-25 | 8 | Keşfet: akışlar, öneriler, ilgi/kaydet, kapatma, ilgilenenler; D-064…D-071 |

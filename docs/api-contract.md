@@ -32,8 +32,16 @@ JSON Schema üretimi: `z.toJSONSchema(schema, { io: "input" })` (istek) ve `z.to
 |---|---|---|
 | `triggers-matchOnNeedCreated` | `needs/{needId}` oluşturuldu | Aynı üniversitedeki doğrulanmış, ilgili ve engelsiz öğrencilerden en fazla 20 eşleşme (`needs/{id}/matches/{candidateUid}`) ve adaylara bildirim (`notifications/{uid}/items/match_{needId}`) oluşturur; ilanda `matchStatus`, `matchCount`, `matchedAt` günceller. En az bir kez teslim edilir; idempotenttir; geçici hatada yeniden denenir, 1 saatten eski olayda `failed` yazar (`done`'ın üzerine yazmaz) |
 
+| `triggers-notifyOnInterest` | `needs/{needId}/interests/{uid}` oluşturuldu | İlgi hâlâ varsa ve ilan açıksa ilan sahibine `interest_{needId}_{uid}` bildirimi (transaction, idempotent) |
+| `triggers-withdrawOnInterestDeleted` | aynı yol silindi | İlgi yoksa ilgili bildirimi siler |
+
 İstemci sorgu biçimleri (Rules bunlara göre yazıldı; iOS aynı biçimi kullanmalı):
 
+- Kampüs akışı: `needs` · `where universityId == <benim>` · `where status == "open"` · `orderBy createdAt desc` · sayfa 20 (imleç).
+- Genel akış: `needs` · `where visibility == "global"` · `where status == "open"` · `orderBy createdAt desc` · sayfa 20.
+- Kaydedilenler: `savedNeeds/{uid}/items` · `orderBy createdAt desc` · sayfa 20; ilanlar tek tek okunur.
+- İlan kapatma: `update needs/{id} { status: "closed", updatedAt: serverTimestamp() }` (yalnızca sahibi).
+- İlgileniyorum: `set needs/{id}/interests/{uid} { uid, needId, createdAt: serverTimestamp() }` / `delete`. Kaydet: `set savedNeeds/{uid}/items/{needId} { needId, createdAt: serverTimestamp() }` / `delete`. Var olan belgeye tekrar `set` Rules'ta güncelleme sayılır ve reddedilir; istemci bunu "zaten var" olarak ele alır.
 - İlan sahibi: `needs/{id}/matches` · `where status == "suggested"` · `orderBy score desc` · `limit 50`.
 - Aday: `collectionGroup("matches")` · `where candidateUid == <uid>` · `where status == "suggested"` · `orderBy createdAt desc` (Faz 8).
 - İlan sahibi gizleme: `update needs/{id}/matches/{candidateUid} { status: "dismissed" }` (başka alan değişemez).

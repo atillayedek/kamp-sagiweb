@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useId } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/ui/Badge";
@@ -15,6 +16,7 @@ export type NeedCardData = {
   participants: string;
   location?: string;
   postedAgo?: string;
+  closed?: boolean;
   author: {
     name: string;
     department: string;
@@ -24,6 +26,7 @@ export type NeedCardData = {
 
 type NeedCardProps = {
   need: NeedCardData;
+  href?: string;
   actions?: TearOffAction[];
   pinned?: boolean;
   headingLevel?: "h2" | "h3";
@@ -40,7 +43,7 @@ function Detail({ icon, label, value }: { icon: IconName; label: string; value: 
   );
 }
 
-export function NeedCard({ need, actions, pinned = false, headingLevel: Heading = "h3", className }: NeedCardProps) {
+export function NeedCard({ need, href, actions, pinned = false, headingLevel: Heading = "h3", className }: NeedCardProps) {
   const titleId = useId();
   return (
     <Card as="article" aria-labelledby={titleId} className={cn("relative", className)}>
@@ -52,11 +55,20 @@ export function NeedCard({ need, actions, pinned = false, headingLevel: Heading 
       )}
       <div className="flex flex-col gap-3 p-5">
         <div className="flex items-center justify-between gap-3">
-          <Tag tone="accent">{need.category}</Tag>
+          <span className="flex flex-wrap items-center gap-1.5">
+            <Tag tone="accent">{need.category}</Tag>
+            {need.closed && <Tag tone="neutral">Kapandı</Tag>}
+          </span>
           {need.postedAgo && <span className="text-sm text-ink-muted">{need.postedAgo}</span>}
         </div>
         <Heading id={titleId} className="text-lg font-semibold leading-snug text-ink">
-          {need.title}
+          {href ? (
+            <Link href={href} className="underline-offset-2 hover:text-primary hover:underline">
+              {need.title}
+            </Link>
+          ) : (
+            need.title
+          )}
         </Heading>
         <dl className="grid gap-1.5 text-sm text-ink">
           <Detail icon="calendar" label="Zaman" value={need.when} />

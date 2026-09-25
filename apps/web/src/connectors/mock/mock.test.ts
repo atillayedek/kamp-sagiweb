@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AppError } from "../errors";
+import { serverTime } from "../types";
 import { createMockConnectors, InMemoryDocumentSource, MockFunctionsConnector, MockStorageConnector } from "./index";
 
 describe("MockFunctionsConnector", () => {
@@ -84,5 +85,46 @@ describe("InMemoryDocumentWriter", () => {
   it("olmayan belgede not-found döndürür", async () => {
     const connectors = createMockConnectors();
     await expect(connectors.writer.updateFields("yok/belge", { a: 1 })).rejects.toMatchObject({ code: "not-found" });
+  });
+});
+
+describe("InMemoryDocumentSource sayfalama ve collection group", () => {
+  const schema = z.object({ sira: z.number(), sahip: z.string().optional() });
+
+  it("imleçle sayfa sayfa döndürür", async () => {
+    const documents = new InMemoryDocumentSource(
+      new Map<string, unknown>(Array.from({ length: 5 }, (_, index) => [`ilanlar/${index}`, { sira: index }])),
+    );
+    const first = await documents.queryPage("ilanlar", { orderBy: ["sira", "desc"], limit: 2 }, schema);
+    expect(first.items.map((item) => item.data.sira)).toEqual([4, 3]);
+    const second = await documents.queryPage("ilanlar", { orderBy: ["sira", "desc"], limit: 2, after: first.next }, schema);
+    expect(second.items.map((item) => item.data.sira)).toEqual([2, 1]);
+    const last = await documents.queryPage("ilanlar", { orderBy: ["sira", "desc"], limit: 2, after: second.next }, schema);
+    expect(last.items.map((item) => item.data.sira)).toEqual([0]);
+    expect(last.next).toBeNull();
+  });
+
+  it("aynı adlı alt koleksiyonları birlikte sorgular", async () => {
+    const documents = new InMemoryDocumentSource(
+      new Map<string, unknown>([
+        ["ilanlar/a/ilgiler/u1", { sira: 1, sahip: "u1" }],
+        ["ilanlar/b/ilgiler/u1", { sira: 2, sahip: "u1" }],
+        ["ilanlar/b/ilgiler/u2", { sira: 3, sahip: "u2" }],
+      ]),
+    );
+    const result = await documents.queryCollectionGroup("ilgiler", { where: [["sahip", "==", "u1"]], orderBy: ["sira", "desc"] }, schema);
+    expect(result.map((item) => item.path)).toEqual(["ilanlar/b/ilgiler/u1", "ilanlar/a/ilgiler/u1"]);
+  });
+});
+
+describe("InMemoryDocumentWriter oluşturma ve silme", () => {
+  it("sunucu zamanını ISO tarihe çevirir ve belgeyi siler", async () => {
+    const documents = new InMemoryDocumentSource();
+    const connectors = createMockConnectors({ documents });
+    await connectors.writer.setDocument("kayitlar/u1/ogeler/n1", { needId: "n1", createdAt: serverTime });
+    const saved = documents.peek("kayitlar/u1/ogeler/n1") as { createdAt: string };
+    expect(saved.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    await connectors.writer.deleteDocument("kayitlar/u1/ogeler/n1");
+    expect(documents.peek("kayitlar/u1/ogeler/n1")).toBeUndefined();
   });
 });

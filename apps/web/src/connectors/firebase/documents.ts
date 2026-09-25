@@ -1,5 +1,7 @@
 import {
   collection,
+  collectionGroup,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -7,15 +9,48 @@ import {
   onSnapshot,
   orderBy,
   query,
+  serverTimestamp,
+  setDoc,
+  startAfter,
   updateDoc,
   where,
   type Firestore,
+  type Query,
   type QueryConstraint,
+  type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import type { z } from "zod";
 import { toAppError } from "../errors";
 import { parseOrThrow } from "../parse";
-import type { DocumentSource, DocumentWriter, FieldValue, QueryOptions } from "../types";
+import {
+  serverTime,
+  type Cursor,
+  type DocumentSource,
+  type DocumentWriter,
+  type FieldValue,
+  type PageOptions,
+  type QueryOptions,
+} from "../types";
+
+function constraintsFor(options: QueryOptions): QueryConstraint[] {
+  return [
+    ...(options.where ?? []).map(([field, operator, value]) => where(field, operator, value)),
+    ...(options.orderBy ? [orderBy(options.orderBy[0], options.orderBy[1])] : []),
+    ...(options.limit ? [limit(options.limit)] : []),
+  ];
+}
+
+async function run(target: Query) {
+  try {
+    return await getDocs(target);
+  } catch (error) {
+    throw toAppError(error);
+  }
+}
+
+function toFirestore(fields: Record<string, FieldValue>) {
+  return Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, value === serverTime ? serverTimestamp() : value]));
+}
 
 function isTimestampLike(value: object): value is { toDate: () => Date } {
   return "toDate" in value && typeof value.toDate === "function";
@@ -57,20 +92,37 @@ export class FirebaseDocumentSource implements DocumentSource {
   }
 
   async queryCollection<S extends z.ZodType>(path: string, options: QueryOptions, schema: S) {
-    const constraints: QueryConstraint[] = [
-      ...(options.where ?? []).map(([field, operator, value]) => where(field, operator, value)),
-      ...(options.orderBy ? [orderBy(options.orderBy[0], options.orderBy[1])] : []),
-      ...(options.limit ? [limit(options.limit)] : []),
-    ];
-    let snapshot;
-    try {
-      snapshot = await getDocs(query(collection(this.firestore, path), ...constraints));
-    } catch (error) {
-      throw toAppError(error);
-    }
+    const snapshot = await run(query(collection(this.firestore, path), ...constraintsFor(options)));
     return snapshot.docs.map((item) => ({
       id: item.id,
       data: parseOrThrow(schema, normalizeFirestoreData(item.data()), `${path}/${item.id}`),
+    }));
+  }
+
+  async queryPage<S extends z.ZodType>(path: string, options: PageOptions, schema: S) {
+    const after = options.after as unknown as QueryDocumentSnapshot | null | undefined;
+    const source = options.collectionGroup ? collectionGroup(this.firestore, path) : collection(this.firestore, path);
+    const constraints = [
+      ...constraintsFor({ ...options, limit: undefined }),
+      ...(after ? [startAfter(after)] : []),
+      limit(options.limit + 1),
+    ];
+    const snapshot = await run(query(source, ...constraints));
+    const docs = snapshot.docs.slice(0, options.limit);
+    const items = docs.map((item) => ({
+      id: item.id,
+      data: parseOrThrow(schema, normalizeFirestoreData(item.data()), item.ref.path),
+    }));
+    const hasMore = snapshot.docs.length > options.limit;
+    return { items, next: hasMore ? (docs.at(-1) as unknown as Cursor) : null };
+  }
+
+  async queryCollectionGroup<S extends z.ZodType>(collectionId: string, options: QueryOptions, schema: S) {
+    const snapshot = await run(query(collectionGroup(this.firestore, collectionId), ...constraintsFor(options)));
+    return snapshot.docs.map((item) => ({
+      id: item.id,
+      path: item.ref.path,
+      data: parseOrThrow(schema, normalizeFirestoreData(item.data()), item.ref.path),
     }));
   }
 
@@ -97,11 +149,23 @@ export class FirebaseDocumentSource implements DocumentSource {
 export class FirebaseDocumentWriter implements DocumentWriter {
   constructor(private readonly firestore: Firestore) {}
 
-  async updateFields(path: string, fields: Record<string, FieldValue>) {
+  private async attempt(operation: () => Promise<void>) {
     try {
-      await updateDoc(doc(this.firestore, path), fields);
+      await operation();
     } catch (error) {
       throw toAppError(error);
     }
+  }
+
+  setDocument(path: string, fields: Record<string, FieldValue>) {
+    return this.attempt(() => setDoc(doc(this.firestore, path), toFirestore(fields)));
+  }
+
+  updateFields(path: string, fields: Record<string, FieldValue>) {
+    return this.attempt(() => updateDoc(doc(this.firestore, path), toFirestore(fields)));
+  }
+
+  deleteDocument(path: string) {
+    return this.attempt(() => deleteDoc(doc(this.firestore, path)));
   }
 }

@@ -40,6 +40,14 @@ export type QueryOptions = {
   limit?: number;
 };
 
+declare const cursorBrand: unique symbol;
+
+export type Cursor = { readonly [cursorBrand]: true };
+
+export type PageOptions = QueryOptions & { limit: number; after?: Cursor | null; collectionGroup?: boolean };
+
+export type Page<T> = { items: Array<ListedDocument<T>>; next: Cursor | null };
+
 export interface DocumentSource {
   getDocument<S extends z.ZodType>(path: string, schema: S): Promise<z.output<S> | null>;
   listCollection<S extends z.ZodType>(path: string, schema: S): Promise<Array<ListedDocument<z.output<S>>>>;
@@ -48,6 +56,12 @@ export interface DocumentSource {
     options: QueryOptions,
     schema: S,
   ): Promise<Array<ListedDocument<z.output<S>>>>;
+  queryPage<S extends z.ZodType>(path: string, options: PageOptions, schema: S): Promise<Page<z.output<S>>>;
+  queryCollectionGroup<S extends z.ZodType>(
+    collectionId: string,
+    options: QueryOptions,
+    schema: S,
+  ): Promise<Array<ListedDocument<z.output<S>> & { path: string }>>;
   watchDocument<S extends z.ZodType>(
     path: string,
     schema: S,
@@ -56,10 +70,14 @@ export interface DocumentSource {
   ): Unsubscribe;
 }
 
-export type FieldValue = string | number | boolean | null;
+export const serverTime = Object.freeze({ kind: "server-time" as const });
+
+export type FieldValue = string | number | boolean | null | typeof serverTime;
 
 export interface DocumentWriter {
+  setDocument(path: string, fields: Record<string, FieldValue>): Promise<void>;
   updateFields(path: string, fields: Record<string, FieldValue>): Promise<void>;
+  deleteDocument(path: string): Promise<void>;
 }
 
 export type UploadOptions = {

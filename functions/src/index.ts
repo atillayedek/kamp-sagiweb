@@ -7,6 +7,7 @@ import {
   syncVerificationClaimsCallable,
 } from "./callables/verification";
 import { purgeExpiredRecords, purgeVerificationFiles } from "./jobs/purge";
+import { notifyOnInterest, withdrawOnInterestDeleted } from "./interests/trigger";
 import { matchOnNeedCreated } from "./matching/trigger";
 
 export const v1 = {
@@ -22,4 +23,4 @@ export const v1 = {
 
 export const jobs = { purgeVerificationFiles, purgeExpiredRecords };
 
-export const triggers = { matchOnNeedCreated };
+export const triggers = { matchOnNeedCreated, notifyOnInterest, withdrawOnInterestDeleted };

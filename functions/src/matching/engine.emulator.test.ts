@@ -116,6 +116,8 @@ describe("computeMatches", () => {
     await firestore.doc(`needs/${needId}/matches/${candidate}`).update({ status: "dismissed" });
     await firestore.doc(`notifications/${candidate}/items/match_${needId}`).update({ read: true });
 
+    expect((await computeMatches(deps, needId)).status).toBe("skipped");
+    await firestore.doc(`needs/${needId}`).update({ matchStatus: "pending" });
     const again = await computeMatches(deps, needId);
     expect(again).toMatchObject({ created: 0, total: 1 });
     expect((await firestore.doc(`needs/${needId}/matches/${candidate}`).get()).get("status")).toBe("dismissed");
@@ -166,7 +168,8 @@ describe("computeMatches", () => {
     const candidate = await student(uni, "aday", { interests: ["basketbol"] });
     const needId = await need(uni, author);
     const runs = await Promise.all([computeMatches(deps, needId), computeMatches(deps, needId)]);
-    expect(runs.map((run) => run.status)).toEqual(["done", "done"]);
+    expect(runs.some((run) => run.status === "done")).toBe(true);
+    expect(runs.every((run) => run.status === "done" || run.status === "skipped")).toBe(true);
     expect(runs.reduce((sum, run) => sum + run.created, 0)).toBe(1);
     expect(await matchIds(needId)).toEqual([candidate]);
     expect((await firestore.doc(`needs/${needId}`).get()).data()).toMatchObject({ matchStatus: "done", matchCount: 1 });

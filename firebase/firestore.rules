@@ -103,14 +103,20 @@ service cloud.firestore {
     }
 
     match /needs/{needId} {
+      function need() {
+        return get(/databases/$(database)/documents/needs/$(needId)).data;
+      }
+
       allow read: if canSee(resource.data);
-      allow write: if false;
+      allow update: if isVerified()
+        && resource.data.authorUid == uid()
+        && resource.data.status == 'open'
+        && changedKeys().hasOnly(['status', 'updatedAt'])
+        && incoming().status == 'closed'
+        && isNow(incoming().updatedAt);
+      allow create, delete: if false;
 
       match /matches/{candidateUid} {
-        function need() {
-          return get(/databases/$(database)/documents/needs/$(needId)).data;
-        }
-
         allow read: if isVerified()
           && ((candidateUid == uid() && resource.data.status == 'suggested') || need().authorUid == uid());
         allow update: if isVerified()
@@ -119,6 +125,37 @@ service cloud.firestore {
           && incoming().status == 'dismissed';
         allow create, delete: if false;
       }
+
+      match /interests/{interestUid} {
+        allow read: if isVerified() && (interestUid == uid() || need().authorUid == uid());
+        allow create: if interestUid == uid()
+          && canSee(need())
+          && need().status == 'open'
+          && need().authorUid != uid()
+          && !blocked(need().authorUid, uid())
+          && !blocked(uid(), need().authorUid)
+          && incoming().keys().hasOnly(['uid', 'needId', 'createdAt'])
+          && incoming().uid == uid()
+          && incoming().needId == needId
+          && isNow(incoming().createdAt);
+        allow delete: if isVerified() && interestUid == uid();
+        allow update: if false;
+      }
+    }
+
+    match /{path=**}/interests/{interestId} {
+      allow read: if isVerified() && resource.data.uid == uid();
+    }
+
+    match /savedNeeds/{ownerUid}/items/{needId} {
+      allow read: if isOwner(ownerUid);
+      allow create: if isOwner(ownerUid)
+        && isVerified()
+        && incoming().keys().hasOnly(['needId', 'createdAt'])
+        && incoming().needId == needId
+        && isNow(incoming().createdAt);
+      allow delete: if isOwner(ownerUid);
+      allow update: if false;
     }
 
     match /{path=**}/matches/{matchId} {

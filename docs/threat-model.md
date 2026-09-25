@@ -1,7 +1,7 @@
 # KampüsAğı — Tehdit Modeli
 
 > **TASLAK.** Faz 0'da açıldı; Faz 5'te STRIDE ile dolduruldu; Faz 13'te gözden geçirilecek.
-> Son güncelleme: 2026-09-25 (Faz 7)
+> Son güncelleme: 2026-09-25 (Faz 8)
 
 ## 1. Kapsam
 
@@ -86,6 +86,9 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | T-27 | Claude'un reddettiği metnin elle doldurma yoluyla yayımlanması | Ret bir UX sinyalidir; asıl kontrol rapor + moderasyon; `parseStatus` ile önceliklendirme (D-049) | 6, 12 |
 | T-29 | Profiline çok sayıda ilgi yazarak her ilanda aday olma (bildirim spamı alma / görünürlük) | Profilde en fazla 10 ilgi + 10 beceri; ilan başına en fazla 20 eşleşme; skor ilgili bileşenlerle normalize | 7, 13 |
 | T-30 | Engellenen kişiyle eşleşme gösterimi | Oluşturmada iki yönlü engel kontrolü (T); sonradan engelde temizlik Faz 11 (R-10) | 7, 11 |
+| T-31 | Engellenen kullanıcının ilana ilgi bildirerek bildirim göndermesi | Rules'ta iki yönlü engel kontrolü (T) | 8 |
+| T-32 | Geri alınan ilginin ilan sahibine sızması | Bildirim transaction içinde ilgi varlığıyla yazılır; ilgi silinince bildirim silinir (T) | 8 |
+| T-33 | İlgi aç/kapa ile bildirim gürültüsü | Tek bildirim kimliği (tekrar oluşturulmaz); hız sınırı Faz 13 (R-12) | 8, 13 |
 | T-28 | Paylaşılan sayaç belgesinde kilit çakışması / bütçe aşımı | Parçalı sayaç, transaction ile ayırma, gerçek kullanımla mutabakat; sayaç hatası sonucu kaybettirmez (D-047) | 6 |
 
 ## 7. Artık riskler (Faz 5)
@@ -102,5 +105,6 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | R-08 | PII maskeleme sezgisel (yazıyla yazılmış numaralar, kullanıcı adları, adresler maskelenmez) | D-045; Faz 13'te örnek setle yeniden değerlendirme |
 | R-10 | Eşleşme oluştuktan sonra kurulan engel mevcut eşleşmeyi/bildirimi kaldırmaz | Faz 11'de engelleme arayüzüyle birlikte sunucu tetikleyicisi |
 | R-11 | Bir terim için 500'den fazla ilgili aday varsa belge kimliği sırasına göre ilk 500 taranır | D-055; Faz 13 yük testinde ölçülecek |
+| R-12 | İlgi aç/kapa sayısı sınırsız (her biri bir bildirim oluşturup siler) | Faz 13'te hız sınırı değerlendirilecek |
 | R-09 | Günlük bütçe token cinsinden; yedek model adımı rezervasyonu az miktarda aşabilir | D-047; Anthropic tarafında harcama limiti/alarm (Faz 14) |
 

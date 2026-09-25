@@ -15,10 +15,11 @@ type TabsProps = {
   items: TabItem[];
   label: string;
   defaultTabId?: string;
+  lazy?: boolean;
   className?: string;
 };
 
-export function Tabs({ items, label, defaultTabId, className }: TabsProps) {
+export function Tabs({ items, label, defaultTabId, lazy = false, className }: TabsProps) {
   const baseId = useId();
   const [requestedId, setActiveId] = useState(defaultTabId);
   const activeId = items.some((item) => item.id === requestedId) ? requestedId : items[0]?.id;
@@ -85,7 +86,7 @@ export function Tabs({ items, label, defaultTabId, className }: TabsProps) {
           tabIndex={0}
           className="mt-4 rounded-card"
         >
-          {item.content}
+          {(!lazy || item.id === activeId) && item.content}
         </div>
       ))}
     </div>

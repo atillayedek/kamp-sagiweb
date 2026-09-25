@@ -166,3 +166,16 @@ export type PublishNeedRequest = z.input<typeof publishNeedRequestSchema>;
 export const publishNeedResponseSchema = z.strictObject({
   needId: needDraftIdSchema,
 });
+
+export const needInterestSchema = z.object({
+  uid: uidSchema,
+  needId: z.string(),
+  createdAt: isoDateTimeSchema.nullable(),
+});
+
+export type NeedInterest = z.infer<typeof needInterestSchema>;
+
+export const savedNeedSchema = z.object({
+  needId: z.string(),
+  createdAt: isoDateTimeSchema.nullable(),
+});

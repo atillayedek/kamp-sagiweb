@@ -92,6 +92,58 @@ export async function createVerifiedStudent({
   return uid;
 }
 
+export async function createNeed({
+  id = `seed-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  authorUid,
+  universityId,
+  visibility = "campus",
+  title,
+  category = "spor",
+  tags = [],
+  requiredSkills = [],
+  createdAt = new Date(),
+  matchStatus = "pending",
+  status = "open",
+}) {
+  await writeDocument(`needs/${id}`, {
+    authorUid,
+    universityId,
+    visibility,
+    rawText: title,
+    parsed: {
+      title,
+      category,
+      tags,
+      requiredSkills,
+      participants: { min: 1, max: 1 },
+      when: { kind: "none", startIso: null, endIso: null, rawText: null },
+      locationHint: null,
+    },
+    parseStatus: "parsed",
+    edited: false,
+    status,
+    matchStatus,
+    matchCount: 0,
+    createdAt,
+    updatedAt: createdAt,
+  });
+  return id;
+}
+
+export async function createSuggestedMatch({ needId, needAuthorUid, candidateUid, score, reasons }) {
+  await writeDocument(`needs/${needId}/matches/${candidateUid}`, {
+    candidateUid,
+    needId,
+    needAuthorUid,
+    score,
+    breakdown: { campus: null, category: null, tags: null, skills: null, department: null, reliability: null },
+    reasons,
+    weightsVersion: "e2e",
+    status: "suggested",
+    createdAt: new Date(),
+  });
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await resetEmulators();
   console.log(`Emulator sıfırlandı; ${await seedUniversities()} demo üniversite yüklendi.`);

@@ -1,6 +1,7 @@
 "use client";
 
-import { needDraftIdSchema, needSchema, publicProfileSchema } from "@kampusagi/contracts";
+import { useEffect } from "react";
+import { needDraftIdSchema, needSchema, publicProfileSchema, type Need, type PublicProfile } from "@kampusagi/contracts";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -9,13 +10,15 @@ import { EmptyState, ErrorState } from "@/components/ui/States";
 import { Tag } from "@/components/ui/Tag";
 import { NeedCard } from "@/components/need/NeedCard";
 import { useSignedIn } from "@/features/app/guards";
-import { useDocument } from "@/features/data/useDocument";
-import { formatDateTime } from "@/lib/date";
-import { categoryLabels, formatParticipants, formatWhen, visibilityLabels } from "./labels";
+import { useDocument, type DocumentState } from "@/features/data/useDocument";
+import { OTHER_CAMPUS_AUTHOR, UNKNOWN_AUTHOR, type AuthorView } from "@/features/discover/authors";
+import { toCardData, useNeedActions } from "@/features/discover/FeedNeedCard";
+import { NeedMarksProvider, useNeedMarks } from "@/features/discover/marks";
+import { CloseNeed } from "./CloseNeed";
+import { visibilityLabels } from "./labels";
+import { NeedInterests } from "./NeedInterests";
 import { NeedMatches } from "./NeedMatches";
 
-const OTHER_CAMPUS_AUTHOR = { name: "Doğrulanmış öğrenci", department: "Başka bir üniversite", verified: true };
-const UNKNOWN_AUTHOR = { name: "Öğrenci", department: "Profil bilgisi alınamadı", verified: false };
 
 function DetailSkeleton() {
   return (
@@ -41,11 +44,21 @@ function NotFound() {
 }
 
 export function NeedDetail({ needId }: { needId: string }) {
+  const { session } = useSignedIn();
+  return (
+    <NeedMarksProvider uid={session.user.uid}>
+      <NeedDetailContent needId={needId} />
+    </NeedMarksProvider>
+  );
+}
+
+function NeedDetailContent({ needId }: { needId: string }) {
   const validId = needDraftIdSchema.safeParse(needId).success;
   const need = useDocument(validId ? `needs/${needId}` : null, needSchema);
-  const authorUid = need.status === "ready" ? need.data.authorUid : null;
-  const author = useDocument(authorUid ? `users/${authorUid}` : null, publicProfileSchema);
-  const { session } = useSignedIn();
+  const { session, profile } = useSignedIn();
+  const viewerUniversity = session.claims.universityId ?? profile.universityId;
+  const sameCampus = need.status === "ready" && need.data.universityId === viewerUniversity;
+  const author = useDocument(sameCampus ? `users/${need.data.authorUid}` : null, publicProfileSchema);
 
   if (!validId || need.status === "missing") return <NotFound />;
   if (need.status === "error") {
@@ -55,19 +68,36 @@ export function NeedDetail({ needId }: { needId: string }) {
       <ErrorState title="İlan yüklenemedi" description={need.error.message} />
     );
   }
-  if (need.status === "loading" || author.status === "loading") return <DetailSkeleton />;
+  if (need.status === "loading" || (sameCampus && author.status === "loading")) return <DetailSkeleton />;
+  return (
+    <NeedDetailView needId={needId} data={need.data} author={sameCampus ? author : null} uid={session.user.uid} />
+  );
+}
 
-  const data = need.data;
-  const own = data.authorUid === session.user.uid;
-  let authorView = UNKNOWN_AUTHOR;
-  if (author.status === "ready") {
+function NeedDetailView({
+  needId,
+  data,
+  author,
+  uid,
+}: {
+  needId: string;
+  data: Need;
+  author: DocumentState<PublicProfile> | null;
+  uid: string;
+}) {
+  const own = data.authorUid === uid;
+  const actions = useNeedActions(needId, data, own);
+  const { ensure } = useNeedMarks();
+  useEffect(() => {
+    if (!own) ensure([needId]);
+  }, [ensure, needId, own]);
+  let authorView: AuthorView = author ? UNKNOWN_AUTHOR : OTHER_CAMPUS_AUTHOR;
+  if (author?.status === "ready") {
     authorView = {
       name: author.data.displayName,
       department: author.data.department,
       verified: author.data.verificationStatus === "verified",
     };
-  } else if (author.status === "error" && author.error.code === "permission-denied") {
-    authorView = OTHER_CAMPUS_AUTHOR;
   }
 
   return (
@@ -77,21 +107,9 @@ export function NeedDetail({ needId }: { needId: string }) {
           {visibilityLabels[data.visibility].title}
         </Badge>
         {own && <Badge tone="accent">Senin ilanın</Badge>}
-        {data.status === "closed" && <Badge tone="neutral">Kapandı</Badge>}
       </div>
-      <NeedCard
-        headingLevel="h2"
-        need={{
-          title: data.parsed.title,
-          category: categoryLabels[data.parsed.category],
-          tags: data.parsed.tags,
-          when: formatWhen(data.parsed.when),
-          participants: formatParticipants(data.parsed.participants),
-          location: data.parsed.locationHint ?? undefined,
-          postedAgo: formatDateTime(data.createdAt),
-          author: authorView,
-        }}
-      />
+      <NeedCard headingLevel="h2" need={toCardData(data, authorView)} actions={actions} />
+      {own && <CloseNeed needId={needId} closed={data.status === "closed"} />}
       {data.parsed.requiredSkills.length > 0 && (
         <section aria-labelledby="need-skills" className="flex flex-col gap-2">
           <h3 id="need-skills" className="font-semibold text-ink">
@@ -121,6 +139,14 @@ export function NeedDetail({ needId }: { needId: string }) {
             Skor ve gerekçeler sunucuda, ilanın ve öğrencilerin profillerinden hesaplanır.
           </p>
           <NeedMatches needId={needId} needStatus={data.status} matchStatus={data.matchStatus} matchCount={data.matchCount} />
+        </section>
+      )}
+      {own && (
+        <section aria-labelledby="need-interests" className="flex flex-col gap-3">
+          <h2 id="need-interests" className="text-xl font-bold text-ink">
+            İlgilenenler
+          </h2>
+          <NeedInterests needId={needId} />
         </section>
       )}
     </div>
