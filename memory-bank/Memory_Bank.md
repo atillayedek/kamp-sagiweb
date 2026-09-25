@@ -660,6 +660,7 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
   - `needDrafts` KVKK envanterine eklendi; SDK istemcisi ve şema bir kez oluşturuluyor.
   - Kalan bulgu (elle doldurma yolunun reddi atlatması) güvenlik kontrolü olmadığı için belgelendi (D-049, R-07).
 - [x] e2e axe yardımcısı, Next 16'nın akışla gelen `<title>`'ını bekliyor (yarış durumu giderildi).
+- [x] **CI düzeltmesi:** Faz 4 ve 5 koşuları (run 3–5) e2e job'unda kırmızıydı ve fark edilmemişti. Sebep: CI'da Playwright varsayılan olarak `chromium-headless-shell` kullanıyor; bunda PDF görüntüleyici yok, bu yüzden moderatör önizlemesindeki `embed[type="application/pdf"]` kontrolü başarısız oluyordu. Yerelde tam Chromium kullanıldığı için görünmedi. Hata yerelde headless shell ile yeniden üretildi. Düzeltme `playwright.config.ts > use.channel = "chromium"`: headless modda da tam Chromium kullanılıyor ve kullanıcı tarayıcısına daha yakın. CI kurulumu `--no-shell` oldu. Aynı çözümleme yolu CI benzeri bir tarayıcı diziniyle yerelde doğrulandı: kanalsız başarısız, kanallı başarılı; tüm e2e 139 başarılı. Ders: her push'tan sonra CI sonucu kontrol edilmeli.
 
 ## 10. Sonraki adımlar
 

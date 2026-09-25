@@ -76,7 +76,7 @@ jobs:
           path: ~/.cache/firebase/emulators
           key: firebase-emulators-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @kampusagi/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @kampusagi/web exec playwright install --with-deps --no-shell chromium
       - name: Emulator'ler üzerinde uçtan uca testler
         run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
