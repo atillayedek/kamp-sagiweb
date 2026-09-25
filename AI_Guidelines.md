@@ -134,7 +134,9 @@ Her yeni bağımlılık için gerekçe + lisans + bakım durumu kontrol edilir v
 Her callable'da: (1) `auth` zorunlu, (2) gerekli claim kontrolü, (3) App Check zorunlu, (4) Zod ile giriş doğrulama, (5) kullanıcı başına hız/kota sınırı, (6) idempotency anahtarı, (7) yapılandırılmış, PII içermeyen log.
 
 ### 6.4 Web'e özgü
-CSP ve güvenlik başlıkları; XSS'e karşı kaçışlama; açık yönlendirme (open redirect) kontrolü (yalnızca göreli/izinli yönlendirme); bağımlılık zafiyet taraması; oturum Firebase ID token ile.
+CSP ve güvenlik başlıkları (`apps/web/src/proxy.ts`, `apps/web/security-headers.ts`; D-021); XSS'e karşı kaçışlama; açık yönlendirme (open redirect) kontrolü (yalnızca göreli/izinli yönlendirme); bağımlılık zafiyet taraması; oturum Firebase ID token ile.
+- **Uygulama rotaları (`APP_ROUTE_PREFIXES`) her zaman dinamik render edilir** (nonce CSP). Yeni uygulama rotası eklenirse önek listesine eklenir ve e2e CSP testi kapsamına alınır.
+- Callable'lar yalnızca `defineCallable` ile tanımlanır; yeni callable önce `packages/contracts/src/callables.ts`'e (`v<sürüm>-<ad>`) eklenir.
 
 ### 6.5 Gizli bilgi yönetimi
 Anahtarlar yalnızca secret store'da. `.env*` git'e girmez (`.gitignore`), `.env.example` hariç. CI'da secret scanning.

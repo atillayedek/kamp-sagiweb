@@ -10,6 +10,23 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test"
+    "test": "pnpm -r test",
+    "test:rules": "node scripts/emulators-exec.mjs firestore,storage \"pnpm --filter @kampusagi/rules-tests test:emulator\"",
+    "test:emulator": "pnpm --filter @kampusagi/functions build && node scripts/emulators-exec.mjs auth,firestore,storage,functions \"pnpm --filter @kampusagi/web test:emulator\"",
+    "check:bundle": "node scripts/check-client-bundle.mjs"
+  },
+  "devDependencies": {
+    "firebase-tools": "15.31.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "ignoredBuiltDependencies": [
+      "@firebase/util",
+      "protobufjs",
+      "re2",
+      "unrs-resolver"
+    ]
   }
 }

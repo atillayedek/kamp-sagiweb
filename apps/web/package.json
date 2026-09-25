@@ -9,12 +9,16 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:emulator": "vitest run --config vitest.emulator.config.ts"
   },
   "dependencies": {
+    "@kampusagi/contracts": "workspace:*",
+    "firebase": "12.19.0",
     "next": "16.3.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

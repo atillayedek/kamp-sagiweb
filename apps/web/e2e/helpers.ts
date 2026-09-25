@@ -13,3 +13,11 @@ export async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 }
+
+export function collectCspViolations(page: Page): string[] {
+  const violations: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error" && /Content Security Policy/i.test(message.text())) violations.push(message.text());
+  });
+  return violations;
+}

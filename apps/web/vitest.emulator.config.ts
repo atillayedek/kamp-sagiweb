@@ -6,8 +6,9 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
-    include: ["src/**/*.test.ts"],
-    exclude: ["src/**/*.emulator.test.ts", "node_modules/**"],
+    include: ["src/**/*.emulator.test.ts"],
     environment: "node",
+    testTimeout: 30_000,
+    fileParallelism: false,
   },
 });

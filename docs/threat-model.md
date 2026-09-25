@@ -62,7 +62,9 @@ Web istemcisi (landing + uygulama + `/admin`), Cloud Functions, Firestore, Stora
 | T-06 | Belgeye yetkisiz erişim | Sahibi + moderatör; kısa ömürlü URL | 4 |
 | T-07 | Claude maliyet saldırısı (spam) | App Check, kullanıcı kotası, günlük tavan | 6, 14 |
 | T-08 | Engellenen kullanıcının mesaj atması | Rules + Function'da engel kontrolü | 10 |
-| T-09 | Secret sızıntısı (repo, log, bundle) | `.gitignore`, secret scan, bundle kontrolü | 2, 6, 13 |
+| T-09 | Secret sızıntısı (repo, log, bundle) | `.gitignore`, CI gitleaks, `pnpm check:bundle` (Faz 2'de uygulandı) | 2, 6, 13 |
+| T-13 | App Check'in üretimde kapatılması | `enforceAppCheck` yalnızca emulator'de kapalı; build `.env*` içinde `FUNCTIONS_EMULATOR`'u reddeder (Faz 2) | 2, 14 |
+| T-14 | Uygulama rotasının statik render edilip nonce CSP ile bozulması / CSP'nin gevşetilmesi baskısı | Uygulama rotaları dinamik render zorunlu, e2e CSP testi (D-021) | 3+ |
 | T-10 | Claim gecikmesi nedeniyle iptal edilen yetkinin sürmesi | Refresh token iptali + hassas yazımlarda belge kontrolü (D-007) | 4, 12 |
 | T-11 | XSS (kullanıcı içeriği) | Ham HTML render yok, CSP | 1, 8–10 |
 | T-12 | Açık yönlendirme | Yalnızca göreli/izinli yönlendirme | 3 |

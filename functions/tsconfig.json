@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "paths": {
+      "@kampusagi/contracts": ["../packages/contracts/src/index.ts"]
+    }
+  },
+  "include": ["src", "build.mjs", "vitest.config.ts"]
+}

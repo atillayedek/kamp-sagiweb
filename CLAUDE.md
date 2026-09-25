@@ -12,3 +12,5 @@ Kısa özet (ayrıntı `AI_Guidelines.md` §3):
 - Yetki yalnızca Firebase Auth custom claim'den gelir; skor, sayaç, doğrulama durumu ve bildirimler yalnızca sunucuda yazılır.
 - Hiçbir sır repoya, log'a veya dokümana yazılmaz.
 - Her faz sonunda Memory Bank güncellenir ve sonraki faz için onay istenir.
+
+Sık kullanılan komutlar (kök dizinde): `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm check:bundle`, `pnpm test:rules`, `pnpm test:emulator`; e2e için `pnpm --filter @kampusagi/web test:e2e` (önce build; bu ortamda `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium`).

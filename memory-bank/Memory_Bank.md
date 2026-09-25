@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 2** (Faz 0 ve Faz 1 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 3** (Faz 0–2 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -15,9 +15,10 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 |---|---|
 | Faz 0 | Tamamlandı. Kullanıcı "otomatik devam" dedi; açık sorulara yanıt verilmediği için geçici varsayılanlar uygulanıyor (D-012) |
 | Faz 1 | **Tamamlandı**: tasarım token'ları, bileşen kütüphanesi + `TearOffStrip`, `/tasarim` galerisi, landing, yasal sayfa taslakları, SEO, testler |
-| Faz 2 | Başlıyor |
+| Faz 2 | **Tamamlandı**: `packages/contracts`, `functions/` (callable sarmalayıcı + `v1-ping`), `firebase/` (default deny + rules testleri), web connector katmanı, CSP, CI, SessionStart hook |
+| Faz 3 | Başlıyor |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
-| Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`) |
+| Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
 | Ortam | Node 22, pnpm 10, Java mevcut; Firebase CLI global kurulu değil; Chromium `/opt/pw-browsers/chromium` (Playwright için `PW_CHROMIUM_PATH`) |
 | Firebase projeleri | Yok (S-30) |
@@ -31,6 +32,17 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | `pnpm lint` / `pnpm typecheck` | ESLint 9 (flat config) / `tsc --noEmit` |
 | `pnpm test` | Vitest birim testleri (`src/**/*.test.ts`) |
 | `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm test:e2e` | Playwright + axe; önce `pnpm build` gerekir; 360/768/1440 px projeleri |
+
+### 2.1.1 Komutlar (kök)
+
+| Komut | Açıklama |
+|---|---|
+| `pnpm lint` / `pnpm typecheck` / `pnpm test` / `pnpm build` | Tüm paketlerde |
+| `pnpm check:bundle` | Web build çıktısında Anthropic/sır izi taraması |
+| `pnpm test:rules` | Firestore + Storage emulator'de Security Rules testleri (Java gerekir) |
+| `pnpm test:emulator` | Functions build + Auth/Firestore/Storage/Functions emulator'lerinde web connector entegrasyon testi |
+
+Emulator komutları `scripts/emulators-exec.mjs` üzerinden çalışır (Windows uyumlu; bu ortamdaki `JAVA_TOOL_OPTIONS` Storage rules çalışma zamanını bozduğu için alt süreçten kaldırılır).
 
 ### 2.2 Faz 1 kalite ölçümleri (2026-09-25)
 
@@ -54,11 +66,11 @@ Keşif tarihi: 2026-09-25. "Active" = projede kullanılacak; "Koşullu" = yalnı
 |---|---|---|---|
 | `allinone` | Kullanıcı özel skill'i (`~/.claude/skills/synced/…/allinone/SKILL.md`) | Tüm fazlarda koordinasyon: önce anla → skill seç → planla/uygula/doğrula; SOLID, QA atlama yok, yıkıcı işlemde güvenli davran, dış bilgiyi doğrula, olmayan skill'i çalıştırmış gibi yapma | Active |
 | `claude-api` | Yerleşik (Claude Code) | Faz 6 (`parseNeed`, `AIConnector`), Faz 13 (maliyet), Faz 14 (kota/alarm). Kurallar `AI_Guidelines.md` §7'ye işlendi | Active |
-| `security-review` | Yerleşik | Her faz sonunda bekleyen değişikliklerin güvenlik incelemesi; özellikle Faz 2–6, 10–14 | Active |
+| `security-review` | Yerleşik | Her faz sonunda güvenlik incelemesi; özellikle Faz 2–6, 10–14. **Varsayılan dal (`origin/HEAD`) olmadan çalışmıyor** (S-30); o zamana kadar aynı kontrol listesiyle elle inceleme | Active (engelli) |
 | `code-review` | Yerleşik | Her faz sonunda doğruluk incelemesi (Faz 1: çalıştırıldı, 3 bulgu düzeltildi) | Active |
 | `simplify` | Yerleşik | Kod içeren faz sonlarında sadeleştirme/yeniden kullanım | Active |
 | `run` | Yerleşik | Faz 1'den itibaren uygulamayı başlatıp değişikliği gerçek tarayıcıda doğrulama. Faz 1'de doğrulama doğrudan Playwright (ekran görüntüsü + e2e) ile yapıldı | Active |
-| `startup-hook-skill` (session-start-hook) | Kullanıcı düzeyi (`~/.claude/skills/session-start-hook`) | Faz 2: Claude Code web oturumlarında bağımlılık kurulumu, test ve lint'in çalışması için SessionStart hook | Active (Faz 2) |
+| `startup-hook-skill` (session-start-hook) | Kullanıcı düzeyi (`~/.claude/skills/session-start-hook`) | Faz 2: `.claude/hooks/session-start.sh` oluşturuldu (senkron, yalnızca web; `pnpm install`, `PW_CHROMIUM_PATH`) | Active (uygulandı) |
 | `init` | Yerleşik | Faz 2 sonrası `CLAUDE.md`'nin kod tabanına göre güncellenmesi | Koşullu |
 | `pdf` | Anthropic skill'i | Faz 4: test fixture PDF'leri üretme ve PDF yapısını inceleme (Python araçları). Üretimdeki doğrulama Node tarafında yazılır | Koşullu |
 | `skill-creator` | Anthropic skill'i | Missing Skill'ler için proje skill'i yazmak istenirse (S-27) | Koşullu |
@@ -288,6 +300,42 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: Şimdi `'unsafe-inline'` ile zayıf CSP.
 - Risk: Faz 2'ye kadar CSP yok (yalnızca statik landing yayında değil).
 
+**D-020 — Callable adlandırma ve sürümleme**
+- Decision: Callable'lar `v<sürüm>-<ad>` adıyla (`export const v1 = { ping }` → `v1-ping`) ve `europe-west1` bölgesinde (`FUNCTIONS_REGION`, geçici — S-17). İstek ve yanıt şemaları `packages/contracts` içinde; istemci yanıtı da doğrular.
+- Why: iOS ile kırıcı değişiklikleri sürüm grubuyla yönetmek; iki taraflı sözleşme doğrulaması.
+- Alternative: İstek gövdesinde sürüm alanı.
+- Risk: Bölge S-17 kararıyla değişirse sabit tek yerden güncellenir.
+
+**D-021 — CSP'nin iki katmanlı uygulanması**
+- Decision: CSP `src/proxy.ts` içinde üretilir. Tanıtım sayfaları (`/`, yasal, `/tasarim`): `script-src 'self' 'unsafe-inline'` + SRI (`experimental.sri`). Uygulama rotaları (`APP_ROUTE_PREFIXES`: `/giris`, `/kayit`, `/uygulama`, `/kesfet`, `/topluluklar`, `/mesajlar`, `/profil`, `/dogrulama`, `/admin`): istek başına nonce + `'strict-dynamic'`. `style-src 'unsafe-inline'` (satır içi `style` öznitelikleri için). `connect-src`: `'self'`, `*.googleapis.com`, `*.cloudfunctions.net`; yerel adresler yalnızca geliştirme/emulator.
+- Why: Katı `script-src 'self'` + SRI denendi; Next.js'in satır içi RSC betikleri engellendi ve hidrasyon bozuldu (e2e testi yakaladı). Nonce ise dinamik render gerektirir; tanıtım sayfalarının statik kalması performans için önemli ve bu sayfalar kullanıcı içeriği göstermez.
+- Alternative: Tüm siteyi nonce + dinamik render.
+- Risk: **Uygulama rotalarındaki her sayfa dinamik render edilmek zorunda** (statik prerender edilirse betikler nonce'suz kalır ve engellenir). Faz 3'te `(app)` layout'u `connection()` ile dinamikleştirilecek ve e2e CSP testi uygulama rotalarını da kapsayacak.
+
+**D-022 — Functions paketleme**
+- Decision: `contracts` Functions'a npm bağımlılığı olarak değil, TS yol takma adıyla (tsconfig `paths`, esbuild `alias`, vitest `alias`) bağlanır ve esbuild ile gömülür; `firebase.json` predeploy ile build. `workspace:*` bağımlılığı yok.
+- Why: Cloud Build `npm install` `workspace:` protokolünü desteklemez; temiz kurulum yerelde taklit edilerek doğrulandı.
+- Alternative: Deploy öncesi ayrı paket dizini üretmek.
+- Risk: Düşük.
+
+**D-023 — App Check**
+- Decision: Callable'larda `enforceAppCheck` üretimde her zaman `true`; yalnızca `FUNCTIONS_EMULATOR=true` iken kapalı. Build, `functions/.env*` içinde `FUNCTIONS_EMULATOR` tanımını reddeder. Web sağlayıcısı ÖNERİ: reCAPTCHA Enterprise (`NEXT_PUBLIC_APPCHECK_RECAPTCHA_ENTERPRISE_SITE_KEY`).
+- Why: Üretimde kapatılabilecek bir parametre bırakmamak.
+- Alternative: `defineBoolean` parametresi.
+- Risk: Site anahtarı tanımlanmadan üretime çıkılırsa callable'lar 401 döner (Faz 14 kontrol listesi).
+
+**D-024 — Emulator ortamı**
+- Decision: Proje kimliği `demo-kampusagi` (gerçek projeye erişim imkânsız). Emulator'ler `scripts/emulators-exec.mjs` ile `JAVA_TOOL_OPTIONS` olmadan başlatılır.
+- Why: Bu ortamda `JAVA_TOOL_OPTIONS` stderr çıktısı Storage rules çalışma zamanını bozuyor; betik Windows'ta da çalışır.
+- Alternative: Kabuk `env -u` (Windows'ta yok).
+- Risk: Yok.
+
+**D-025 — Sır taraması doğrulaması**
+- Decision: gitleaks CI'da çalışır; bu ortamda GitHub indirmeleri ağ politikasıyla engellendiği için yerelde çalıştırılamadı. Yerelde `check:bundle` ve elle desen taraması yapıldı.
+- Why: Ortam kısıtı.
+- Alternative: —
+- Risk: İlk CI koşusunda gitleaks yanlış pozitif verirse `.gitleaksignore` ile, gerekçesi yazılarak ele alınır.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -310,6 +358,22 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 | `@types/node`, `@types/react`, `@types/react-dom` | — | MIT | Tip tanımları | Aktif |
 
 Font: Source Sans 3 (SIL Open Font License 1.1), `next/font/google` ile derleme anında indirilip kendi sunucumuzdan servis edilir; tarayıcı Google'a istek atmaz.
+
+**Faz 2 bağımlılıkları**
+
+| Paket | Sürüm | Lisans | Gerekçe |
+|---|---|---|---|
+| `firebase` | 12.19.0 | Apache-2.0 | Web SDK (modular) |
+| `zod` | 4.6.5 | MIT | Paylaşılan şemalar; `z.toJSONSchema` ile iOS için JSON Schema |
+| `firebase-admin` | 14.5.0 | Apache-2.0 | Functions Admin SDK |
+| `firebase-functions` | 7.4.0 | MIT | Callable (v2) |
+| `firebase-tools` | 15.31.0 | MIT | Emulator Suite, deploy (kök devDependency) |
+| `@firebase/rules-unit-testing` | 5.0.2 | Apache-2.0 | Rules testleri |
+| `esbuild` | 0.28.2 | MIT | Functions paketleme (contracts gömülür) |
+
+pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `protobufjs`, `re2`, `unrs-resolver` bilinçli olarak engelli (`package.json > pnpm`).
+
+**Bağımlılık denetimi (2026-09-25, `pnpm audit --prod`):** 0 yüksek/kritik. 2 orta: (1) `firebase <10.9.0` uyarısı — kurulu tek sürüm 12.19.0, **yanlış pozitif**; (2) `uuid <11.1.1` (`firebase-admin > @google-cloud/storage > gaxios`), yalnızca `buf` parametresiyle v3/v5/v6 çağrısında etkili — **kabul edilen risk**, üst paket güncellemesiyle izlenecek.
 
 ## 9. Tamamlanan işler
 
@@ -335,11 +399,24 @@ Font: Source Sans 3 (SIL Open Font License 1.1), `next/font/google` ile derleme 
 - [x] Lighthouse ölçümü (§2.2).
 - [x] Faz sonu `code-review` (medium): 3 bulgu (robots testi gevşekti, Modal `onClose` çift çağrı, Tabs geçersiz varsayılan sekme) → üçü de düzeltildi ve testle doğrulandı.
 
+**Faz 2 (2026-09-25)**
+- [x] Monorepo: `tsconfig.base.json` (strict + `noUncheckedIndexedAccess`), `packages/contracts`, `functions`, `firebase` (rules test paketi).
+- [x] `contracts`: `AppErrorCode` listesi, `callableErrorDetailsSchema`, `customClaimsSchema`, `universityIdSchema`, `FUNCTIONS_REGION`, `callables` kaydı (`ping` → `v1-ping`); JSON Schema'ya dönüştürülebilirlik testi.
+- [x] Functions: `defineCallable` (auth + claim + Zod istek + yanıt sözleşme doğrulaması + PII'siz log + güvenli hata), `resolveCaller`/`parseRequest` (10 test), esbuild paketleme, `firebase.json` predeploy build, `.env*` içinde `FUNCTIONS_EMULATOR` yasağı.
+- [x] Firebase: `firebase.json` (emulator portları, `demo-kampusagi`), default deny `firestore.rules` / `storage.rules`, rules testleri (9, var olan veriye karşı).
+- [x] Web connector katmanı (`src/connectors`): arayüzler, Firebase + mock implementasyonları, `AppError` + Türkçe hata eşleme, `ConnectorsProvider`; birim testleri + emulator entegrasyon testi (5). Dokümantasyon: `docs/connectors.md`.
+- [x] CSP (D-021): `src/proxy.ts` — tanıtım sayfaları SRI + `'unsafe-inline'`, uygulama rotaları nonce + `'strict-dynamic'`; diğer güvenlik başlıkları `next.config.ts`.
+- [x] `.env.example` (yalnızca adlar), `scripts/check-client-bundle.mjs`.
+- [x] CI: `.github/workflows/ci.yml` (quality, emulator, e2e, gitleaks).
+- [x] SessionStart hook (`startup-hook-skill` kurallarıyla; senkron, yalnızca web oturumunda; doğrulandı).
+- [x] Faz sonu `code-review`: 4 bulgu → functions deploy paketleme, `observeSession` yarış durumu (3 test), Storage bucket varsayılanı düzeltildi; nonce CSP + statik sayfa uyumsuzluğu Faz 3 kuralı olarak kaydedildi (D-021).
+- [x] Güvenlik incelemesi: `security-review` skill'i varsayılan dal olmadığı için çalışamadı (`origin/HEAD` yok, S-30); aynı kontrol listesiyle elle yapıldı → `FUNCTIONS_EMULATOR` ile App Check'in kapatılabilmesi riski build korumasıyla kapatıldı.
+
 ## 10. Sonraki adımlar
 
-1. Faz 2: `packages/contracts`, `functions/`, `firebase/` (default deny Rules + emulator), connector arayüzleri + mock'lar, hata eşleme, `.env.example`, CSP (D-018), CI (GitHub Actions), SessionStart hook.
-2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31.
-3. PR açılabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
+1. Faz 3: kimlik doğrulama yöntemi (S-04 — geçici varsayılan uygulanacak), `(app)` rota grubu (**dinamik render zorunlu**, D-021), onboarding, profil, `users` Rules + testleri, claim akışı, ilk moderatör betiği.
+2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-04, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31.
+3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
 ## 11. Açık sorular
 
@@ -385,3 +462,4 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 |---|---|---|
 | 2026-09-25 | 0 | Memory Bank oluşturuldu; skill keşfi ve Faz 0 dokümanları |
 | 2026-09-25 | 1 | Tasarım sistemi, landing, yasal taslaklar, SEO, testler, Lighthouse; D-012…D-019 |
+| 2026-09-25 | 2 | Contracts, Functions iskeleti, default deny Rules + testler, connector katmanı, CSP, CI, SessionStart hook; D-020…D-025 |
