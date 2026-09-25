@@ -4,7 +4,7 @@ import type { Connectors } from "../types";
 import { FirebaseAuthConnector } from "./auth";
 import { createFirebaseClients } from "./clients";
 import { readFirebaseEnvironment } from "./config";
-import { FirebaseDocumentSource } from "./documents";
+import { FirebaseDocumentSource, FirebaseDocumentWriter } from "./documents";
 import { FirebaseFunctionsConnector } from "./functions";
 import { FirebaseStorageConnector } from "./storage";
 
@@ -24,6 +24,7 @@ export function createFirebaseConnectors(): Connectors {
     auth: new FirebaseAuthConnector(clients.auth),
     functions: new FirebaseFunctionsConnector(clients.functions),
     documents: new FirebaseDocumentSource(clients.firestore),
+    writer: new FirebaseDocumentWriter(clients.firestore),
     storage: new FirebaseStorageConnector(clients.storage),
     analytics: noopAnalytics,
   };

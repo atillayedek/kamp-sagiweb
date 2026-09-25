@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { AppError } from "../errors";
-import { InMemoryDocumentSource, MockFunctionsConnector, MockStorageConnector } from "./index";
+import { createMockConnectors, InMemoryDocumentSource, MockFunctionsConnector, MockStorageConnector } from "./index";
 
 describe("MockFunctionsConnector", () => {
   it("yanıtı sözleşmeyle doğrular", async () => {
@@ -66,5 +66,23 @@ describe("InMemoryDocumentSource.queryCollection", () => {
     const schema = z.object({ durum: z.string(), sira: z.number() });
     const result = await documents.queryCollection("istekler", { where: [["durum", "==", "bekliyor"]], orderBy: ["sira", "asc"], limit: 5 }, schema);
     expect(result.map((item) => item.id)).toEqual(["c", "a"]);
+  });
+});
+
+describe("InMemoryDocumentWriter", () => {
+  it("alanları mevcut belgeye yazar ve dinleyicilere yansıtır", async () => {
+    const documents = new InMemoryDocumentSource(new Map<string, unknown>([["ilanlar/a/eslesmeler/b", { durum: "onerildi", skor: 80 }]]));
+    const connectors = createMockConnectors({ documents });
+    const schema = z.object({ durum: z.string(), skor: z.number() });
+    const seen: unknown[] = [];
+    connectors.documents.watchDocument("ilanlar/a/eslesmeler/b", schema, (value) => seen.push(value), () => undefined);
+    await connectors.writer.updateFields("ilanlar/a/eslesmeler/b", { durum: "gizlendi" });
+    await expect(documents.getDocument("ilanlar/a/eslesmeler/b", schema)).resolves.toEqual({ durum: "gizlendi", skor: 80 });
+    expect(seen.at(-1)).toEqual({ durum: "gizlendi", skor: 80 });
+  });
+
+  it("olmayan belgede not-found döndürür", async () => {
+    const connectors = createMockConnectors();
+    await expect(connectors.writer.updateFields("yok/belge", { a: 1 })).rejects.toMatchObject({ code: "not-found" });
   });
 });

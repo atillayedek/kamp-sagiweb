@@ -7,6 +7,7 @@ import {
   syncVerificationClaimsCallable,
 } from "./callables/verification";
 import { purgeExpiredRecords, purgeVerificationFiles } from "./jobs/purge";
+import { matchOnNeedCreated } from "./matching/trigger";
 
 export const v1 = {
   ping,
@@ -20,3 +21,5 @@ export const v1 = {
 };
 
 export const jobs = { purgeVerificationFiles, purgeExpiredRecords };
+
+export const triggers = { matchOnNeedCreated };

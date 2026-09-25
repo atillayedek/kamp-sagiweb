@@ -19,9 +19,9 @@
 | `users/{uid}` | `displayName`, `universityId`, `department`, `interests[]`, `skills[]`, `bio`, `verificationStatus` (S), `reputationScore` (S), `createdAt`, `updatedAt` | Tekil okuma: sahibi, moderatör, aynı üniversitedeki doğrulanmış. **Liste sorgusu yalnızca moderatör** (öğrenci rehberi çıkarılamaz) | S (callable) |
 | `userPrivate/{uid}` | `legal{acceptedTermsVersion, acceptedAt}`, `privacy{profileVisibility}`, `messaging{allowFrom}`, `verification{…}`, `createdAt` | Sahibi | S (callable) |
 | `verificationRequests/{requestId}` | `uid`, `universityId`, `storagePath`, `status`, `rejectReason`, `note`, `reviewedBy`, `reviewedAt`, `createdAt`, `purgeAt`, `fileDeletedAt` | Sahibi, moderatör | S |
-| `needs/{needId}` | `authorUid`, `universityId` (yazarın profilinden), `visibility`, `rawText` (**maskelenmiş** metin), `parsed{title, category, tags[], requiredSkills[], participants{min,max}, when{kind, startIso, endIso, rawText}, locationHint}`, `parseStatus` (`parsed`/`failed` — Claude mı elle mi), `edited` (öneri değiştirildi mi), `status` (`open`/`closed`), `createdAt`, `updatedAt`. Belge kimliği = taslak kimliği | Doğrulanmış + (genel veya aynı üniversite) | S (`v1-publishNeed`) |
+| `needs/{needId}` | `authorUid`, `universityId` (yazarın profilinden), `visibility`, `rawText` (**maskelenmiş** metin), `parsed{title, category, tags[], requiredSkills[], participants{min,max}, when{kind, startIso, endIso, rawText}, locationHint}`, `parseStatus` (`parsed`/`failed` — Claude mı elle mi), `edited` (öneri değiştirildi mi), `status` (`open`/`closed`), `matchStatus` (`pending`/`done`/`failed`, S), `matchCount` (S), `matchedAt` (S), `createdAt`, `updatedAt`. Belge kimliği = taslak kimliği | Doğrulanmış + (genel veya aynı üniversite) | S (`v1-publishNeed`) |
 | `needDrafts/{draftId}` | `uid`, `textHash`, `maskedText`, `maskedKinds[]`, `status` (`pending`/`parsed`/`failed`), `failReason`, `parsed`, `confidence`, `clarifications[]`, `publishable`, `publishedNeedId`, `model`, `attempts`, `createdAt`, `updatedAt`, `expiresAt` (+24 saat) | **Hiç kimse (istemci)** | S (`v1-parseNeed`, `v1-publishNeed`) |
-| `needs/{needId}/matches/{candidateUid}` | `score` (S), `breakdown{…}` (S), `reasons[]` (S), `weightsVersion` (S), `status` (`suggested`/`dismissed`), `createdAt` | İlan sahibi ve aday (doğrulanmış) | S; ilan sahibi yalnızca `status: "dismissed"` yapabilir |
+| `needs/{needId}/matches/{candidateUid}` | `candidateUid`, `needId`, `needAuthorUid`, `score` (0–100), `breakdown{campus, category, tags, skills, department, reliability}` (puan; uygulanamayan bileşen `null`), `reasons[]` (Türkçe), `weightsVersion`, `status` (`suggested`/`dismissed`), `createdAt` — hepsi S | İlan sahibi (hepsi); aday yalnızca `status == "suggested"` iken (tekil okuma ve collection-group sorgusu) | S (tetikleyici); ilan sahibi yalnızca `status: "dismissed"` yapabilir |
 | `posts/{postId}` | `authorUid`, `universityId`, `visibility`, `text`, `likeCount` (S), `commentCount` (S), `createdAt` | Doğrulanmış + görünürlük | K oluşturma (sayaçlar 0); **değiştirilemez**; silme: S |
 | `posts/{postId}/comments/{commentId}` | `authorUid`, `text`, `createdAt` | Gönderiyi okuyabilen | K oluşturma; **değiştirilemez**; silme: S |
 | `posts/{postId}/likes/{uid}` | `createdAt` | Gönderiyi okuyabilen | K (yalnızca kendi `uid` belgesi; oluşturma/silme) |
@@ -31,11 +31,11 @@
 | `events/{eventId}/attendees/{uid}` | `joinedAt` | Etkinliği okuyabilen | K (yalnızca kendi `uid`) |
 | `conversations/{conversationId}` | `participants[2]`, `lastMessage{text, senderUid, at}` (S), `unreadCounts{uid: n}` (S), `createdAt`, `updatedAt` (S; oluşturmada da yazılır, liste sıralaması) | Katılımcılar (doğrulanmış) | S (başlatma callable'ı, Faz 10) |
 | `conversations/{id}/messages/{messageId}` | `senderUid`, `text`, `createdAt` | Katılımcılar | K oluşturma: katılımcı, doğrulanmış, tam 2 katılımcı, iki yönde engel yok, alıcının `userPrivate.messaging.allowFrom` tercihi (`everyone` veya aynı üniversite için `campus`); düzenleme/silme yok |
-| `notifications/{uid}/items/{notificationId}` | `type`, `payload{…}`, `read`, `createdAt` | Sahibi | S oluşturma; sahibi yalnızca `read: true` yapar |
+| `notifications/{uid}/items/{notificationId}` | `type`, `payload{…}`, `read`, `createdAt`. Eşleşme bildirimi: kimlik `match_{needId}`, `type: "need-match"`, `payload{needId, title, score}` | Sahibi | S oluşturma; sahibi yalnızca `read: true` yapar |
 | `blocks/{uid}/blocked/{targetUid}` | `createdAt` | Sahibi | K (kendisi için; kendini engelleyemez) |
 | `reports/{reportId}` | `reporterUid`, `targetType`, `targetPath`, `targetSnapshot` (S), `reason` (enum), `details`, `status`, `createdAt` | Moderatör | **S** — rapor callable'ı (Faz 9) hedefin varlığını ve raporlayanın görebildiğini doğrular, içeriğin anlık görüntüsünü alır, tekrarları engeller |
 | `moderationLogs/{logId}` | `action`, `actorUid`, `targetUid`, `targetRef`, `reason`, `createdAt` | Moderatör | S |
-| `config/{doc}` (ör. `config/matching`) | Ağırlıklar, eşikler (kotalar Faz 6'da Firebase params'a taşındı, D-047) | **Hiç kimse (istemci)** | S |
+| `config/{doc}` (ör. `config/matching`) | `config/matching` (isteğe bağlı): `version`, `weights{…}`, `minScore`, `maxMatches`, `maxCandidates`, `neutralReliability`, `categoryTerms{kategori: terimler[]}`; eksik alanlar varsayılandan tamamlanır (D-058). Kotalar Firebase params'ta (D-047) | **Hiç kimse (istemci)** | S |
 | `dataExports/{uid}/jobs/{jobId}` | `status`, `storagePath`, `expiresAt`, `createdAt` | Sahibi | S |
 | `rateLimits/{key}` | `needs_{uid}_{gün}`: `drafts`, `aiParses`, `publishes`; `aiTokens_{gün}_{0-9}`: `tokens` (parçalı günlük bütçe); hepsinde `expiresAt` (+48 saat). Gün = Europe/Istanbul | Hiç kimse | S |
 
@@ -63,5 +63,8 @@
 | `clubs`, `events` | `universityId` ↑, `createdAt` ↓ / `startsAt` ↑ | Kampüs listeleri |
 | `clubs`, `events` | `visibility` ↑, `createdAt` ↓ / `startsAt` ↑ | Genel listeler |
 | `conversations` | `participants` (array-contains), `updatedAt` ↓ | Konuşma listesi (mesajsız yeni konuşmalar da görünür) |
+| `users` | `universityId` ↑, `verificationStatus` ↑, `interests` / `skills` (array-contains) | Eşleştirme aday havuzu (sunucu) |
+| `matches` (koleksiyon) | `status` ↑, `score` ↓ | İlan sahibinin önerilen eşleşme listesi |
+| `matches` (collection group) | `candidateUid` ↑, `status` ↑, `createdAt` ↓ | Adayın "sana uygun ilanlar" listesi (Faz 8) |
 
 Sorgular Rules'u kanıtlayabilmek için her zaman görünürlük filtresi içerir (`universityId == benim` veya `visibility == "global"`).

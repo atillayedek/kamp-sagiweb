@@ -1,6 +1,6 @@
 # KampüsAğı Web — Proje Hedefleri
 
-> Durum: **Faz 0–6 tamamlandı; Faz 7 sürüyor** · Son güncelleme: 2026-09-25
+> Durum: **Faz 0–7 tamamlandı; Faz 8 sürüyor** · Son güncelleme: 2026-09-25
 > Bu dosyadaki "ÖNERİ" etiketli her şey kesin karar değildir. "BELİRSİZ / KARAR BEKLİYOR" maddeleri §11'de listelidir; kararlar `memory-bank/Memory_Bank.md` içinde kayıt altına alınır.
 
 ---
@@ -150,7 +150,7 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 |---|---|---|---|---|
 | S-01 | Web frontend framework'ü | KARAR BEKLİYOR | ÖNERİ: Next.js (App Router) + TypeScript + Tailwind | Faz 1 öncesi |
 | S-02 | Hosting / dağıtım | KARAR BEKLİYOR | ÖNERİ: Firebase App Hosting veya Vercel; dev/staging/prod ayrı projeler | Faz 2 |
-| S-03 | Eşleşme ağırlıkları toplamı 105 | HATA/BELİRSİZ | Config + 100'e normalize | Faz 7 öncesi |
+| S-03 | Eşleşme ağırlıkları toplamı 105 | GEÇİCİ UYGULANDI | Ağırlıklar `config/matching` ile değiştirilebilir; uygulanabilir bileşenlere göre 100'e normalize (D-056); kullanıcı onayı bekliyor | Faz 7 |
 | S-04 | Kimlik doğrulama yöntemi (e-posta+şifre, Google, Apple, telefon, üniversite e-postası) | KARAR BEKLİYOR | Firebase Auth kesin; yöntem belirsiz | Faz 3 |
 | S-05 | Kampüs = `universityId` mi, üniversite içinde birden çok kampüs mü? | BELİRSİZ | "Aynı kampüs" = `universityId` eşitliği | Faz 5 |
 | S-06 | Üniversite listesini kim yönetir | BELİRSİZ | `universities` koleksiyonu, yalnızca admin yazar | Faz 3 |
@@ -159,7 +159,7 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-09 | İlk moderatör nasıl atanır | BELİRSİZ | Sahibin yerelde çalıştırdığı, commit edilmeyen tek seferlik Admin SDK betiği | Faz 3 |
 | S-10 | Claude modeli, token/maliyet limiti, günlük kullanıcı kotası | BELİRSİZ | Model adı config'ten (geçici varsayılan `claude-opus-5`, bkz. D-004); kota parametrik | Faz 6 |
 | S-11 | İhtiyaç kategori listesi | TASLAK UYGULANDI | `ders`, `proje`, `spor`, `etkinlik`, `ulasim`, `esya`, `yardim`, `diger` (D-050); kullanıcı onayı bekliyor | Faz 6 |
-| S-12 | İtibar/güvenilirlik puanı formülü | BELİRSİZ | Sunucu alanı; onaylanana kadar sabit nötr değer | Faz 7 |
+| S-12 | İtibar/güvenilirlik puanı formülü | BELİRSİZ | Sunucu alanı; herkes için sabit nötr 0,5 (D-056) | Faz 7 |
 | S-13 | Web push (FCM) / e-posta bildirimi | BELİRSİZ | Önce uygulama içi bildirim merkezi | Faz 10 |
 | S-14 | Mesajlaşma başlatma kuralı | KISMEN BELİRSİZ | Taraflar doğrulanmış + engelleme yok; eşleşme/karşılıklı ilgi şartı onay bekler | Faz 8 |
 | S-15 | Otomatik içerik moderasyonu | BELİRSİZ | Yalnızca rapor + moderatör | Faz 12 |

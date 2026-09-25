@@ -56,6 +56,12 @@ export interface DocumentSource {
   ): Unsubscribe;
 }
 
+export type FieldValue = string | number | boolean | null;
+
+export interface DocumentWriter {
+  updateFields(path: string, fields: Record<string, FieldValue>): Promise<void>;
+}
+
 export type UploadOptions = {
   contentType: string;
   onProgress?: (percent: number) => void;
@@ -79,6 +85,7 @@ export type Connectors = {
   auth: AuthConnector;
   functions: FunctionsConnector;
   documents: DocumentSource;
+  writer: DocumentWriter;
   storage: StorageConnector;
   analytics: AnalyticsConnector;
 };

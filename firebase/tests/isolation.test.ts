@@ -1,5 +1,18 @@
 import { assertFails, assertSucceeds, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
+import {
+  collection,
+  collectionGroup,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { afterAll, beforeAll, describe, it } from "vitest";
 import { actors } from "./actors";
 import { createTestEnv } from "./setup";
@@ -17,7 +30,14 @@ beforeAll(async () => {
     const db = context.firestore();
     await setDoc(doc(db, "needs/kampus"), campusNeed);
     await setDoc(doc(db, "needs/genel"), globalNeed);
-    await setDoc(doc(db, "needs/kampus/matches/odtuB"), { score: 80, reasons: ["Aynı kampüstesiniz"], status: "suggested" });
+    await setDoc(doc(db, "needs/kampus/matches/odtuB"), {
+      candidateUid: "odtuB",
+      needAuthorUid: "odtuA",
+      score: 80,
+      reasons: ["Aynı kampüstesiniz"],
+      status: "suggested",
+    });
+    await setDoc(doc(db, "needs/genel/matches/odtuD"), { candidateUid: "odtuD", needAuthorUid: "odtuA", score: 70, status: "suggested" });
     await setDoc(doc(db, "posts/kampus"), { authorUid: "odtuA", universityId: "odtu", visibility: "campus", text: "Merhaba", likeCount: 0, commentCount: 0 });
     await setDoc(doc(db, "posts/genel"), { authorUid: "ituC", universityId: "itu", visibility: "global", text: "Herkese", likeCount: 0, commentCount: 0 });
     await setDoc(doc(db, "posts/kampus/comments/y1"), { authorUid: "odtuB", text: "Selam" });
@@ -93,6 +113,35 @@ describe("needs/matches — skor yalnızca sunucuda", () => {
     await assertFails(updateDoc(doc(a.odtuA, "needs/kampus/matches/odtuB"), { reasons: ["uydurma"] }));
     await assertFails(updateDoc(doc(a.odtuA, "needs/kampus/matches/odtuB"), { status: "accepted" }));
     await assertSucceeds(updateDoc(doc(a.odtuA, "needs/kampus/matches/odtuB"), { status: "dismissed" }));
+  });
+
+  it("aday yalnızca kendi önerilen eşleşmelerini tüm ilanlarda sorgulayabilir", async () => {
+    const mine = (db: typeof a.odtuB, candidateUid: string) =>
+      query(
+        collectionGroup(db, "matches"),
+        where("candidateUid", "==", candidateUid),
+        where("status", "==", "suggested"),
+        orderBy("createdAt", "desc"),
+      );
+    await assertSucceeds(getDocs(mine(a.odtuB, "odtuB")));
+    await assertFails(getDocs(mine(a.odtuB, "odtuD")));
+    await assertFails(getDocs(query(collectionGroup(a.odtuB, "matches"), where("candidateUid", "==", "odtuB"))));
+    await assertFails(getDocs(collectionGroup(a.odtuB, "matches")));
+    await assertFails(getDocs(mine(a.unverified, "yeni")));
+    await assertFails(getDocs(mine(a.anonymous, "odtuB")));
+  });
+
+  it("aday, ilan sahibinin gizlediği eşleşmeyi göremez", async () => {
+    await env.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "needs/kampus/matches/odtuD"), {
+        candidateUid: "odtuD",
+        needAuthorUid: "odtuA",
+        score: 60,
+        status: "dismissed",
+      });
+    });
+    await assertFails(getDoc(doc(a.odtuD, "needs/kampus/matches/odtuD")));
+    await assertSucceeds(getDoc(doc(a.odtuA, "needs/kampus/matches/odtuD")));
   });
 
   it("kimse istemciden eşleşme oluşturamaz", async () => {

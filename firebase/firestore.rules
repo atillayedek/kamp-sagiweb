@@ -111,13 +111,18 @@ service cloud.firestore {
           return get(/databases/$(database)/documents/needs/$(needId)).data;
         }
 
-        allow read: if isVerified() && (candidateUid == uid() || need().authorUid == uid());
+        allow read: if isVerified()
+          && ((candidateUid == uid() && resource.data.status == 'suggested') || need().authorUid == uid());
         allow update: if isVerified()
           && need().authorUid == uid()
           && changedKeys().hasOnly(['status'])
           && incoming().status == 'dismissed';
         allow create, delete: if false;
       }
+    }
+
+    match /{path=**}/matches/{matchId} {
+      allow read: if isVerified() && resource.data.candidateUid == uid() && resource.data.status == 'suggested';
     }
 
     match /posts/{postId} {

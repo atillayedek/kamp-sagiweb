@@ -17,3 +17,7 @@ if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -x /opt/pw-browsers/chromium ]; then
   echo 'export PW_CHROMIUM_PATH=/opt/pw-browsers/chromium' >> "$CLAUDE_ENV_FILE"
   echo 'export NEXT_TELEMETRY_DISABLED=1' >> "$CLAUDE_ENV_FILE"
 fi
+
+if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -n "${HTTPS_PROXY:-}" ]; then
+  echo 'export EMULATORS_BYPASS_PROXY=1' >> "$CLAUDE_ENV_FILE"
+fi

@@ -2,6 +2,7 @@ export * from "./callables";
 export * from "./errors";
 export * from "./runtime";
 export * from "./schemas/common";
+export * from "./schemas/match";
 export * from "./schemas/need";
 export * from "./schemas/ping";
 export * from "./schemas/profile";

@@ -26,6 +26,18 @@ Zaman aşımı: callable süresi sözleşmede (`timeoutSeconds`, varsayılan 30 
 
 JSON Schema üretimi: `z.toJSONSchema(schema, { io: "input" })` (istek) ve `z.toJSONSchema(schema)` (yanıt); dönüştürülebilirlik `contracts.test.ts` ile güvence altında.
 
+## 1.1 Sunucu tetikleyicileri (istemci çağırmaz)
+
+| Fonksiyon | Olay | Etki |
+|---|---|---|
+| `triggers-matchOnNeedCreated` | `needs/{needId}` oluşturuldu | Aynı üniversitedeki doğrulanmış, ilgili ve engelsiz öğrencilerden en fazla 20 eşleşme (`needs/{id}/matches/{candidateUid}`) ve adaylara bildirim (`notifications/{uid}/items/match_{needId}`) oluşturur; ilanda `matchStatus`, `matchCount`, `matchedAt` günceller. En az bir kez teslim edilir; idempotenttir; geçici hatada yeniden denenir, 1 saatten eski olayda `failed` yazar (`done`'ın üzerine yazmaz) |
+
+İstemci sorgu biçimleri (Rules bunlara göre yazıldı; iOS aynı biçimi kullanmalı):
+
+- İlan sahibi: `needs/{id}/matches` · `where status == "suggested"` · `orderBy score desc` · `limit 50`.
+- Aday: `collectionGroup("matches")` · `where candidateUid == <uid>` · `where status == "suggested"` · `orderBy createdAt desc` (Faz 8).
+- İlan sahibi gizleme: `update needs/{id}/matches/{candidateUid} { status: "dismissed" }` (başka alan değişemez).
+
 ## 2. Hata sözleşmesi
 
 Callable hataları `HttpsError(code, message, { appCode })` döner. İstemci `appCode`'u (`AppErrorCode`, `packages/contracts/src/errors.ts`) esas alır ve mesajı kendi yerelleştirmesinden gösterir. `not-verified`, HTTP düzeyinde `permission-denied`'dır.

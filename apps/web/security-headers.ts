@@ -17,13 +17,17 @@ function scriptSources({ isDev, appCheck, nonce }: CspOptions): string[] {
   return ["'self'", "'unsafe-inline'", ...devOnly, ...recaptcha];
 }
 
+// Firestore's WebChannel transport loads this image after a network error to tell
+// "offline" apart from "server unreachable"; allow exactly this URL, not the whole host.
+const FIRESTORE_CONNECTIVITY_PROBE = "https://www.google.com/images/cleardot.gif";
+
 export function buildContentSecurityPolicy(options: CspOptions): string {
   const { isDev, useEmulators, appCheck, https } = options;
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": scriptSources(options),
     "style-src": ["'self'", "'unsafe-inline'"],
-    "img-src": ["'self'", "data:", "blob:", "https://firebasestorage.googleapis.com"],
+    "img-src": ["'self'", "data:", "blob:", "https://firebasestorage.googleapis.com", FIRESTORE_CONNECTIVITY_PROBE],
     "font-src": ["'self'"],
     "connect-src": [
       "'self'",

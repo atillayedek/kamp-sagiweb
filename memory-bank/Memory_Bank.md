@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 7** (Faz 0–6 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 8** (Faz 0–7 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -20,7 +20,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | Faz 4 | **Tamamlandı**: belge yükleme + sunucu doğrulaması, moderatör paneli (`/admin`), onay/red + claim, denetim kaydı, kilitler, saklama/temizlik işi |
 | Faz 5 | **Tamamlandı**: veri modeli kesinleşti (`docs/data-model.md`), tüm koleksiyonlar için alan bazlı Rules, kampüs/genel görünürlük, indeksler, STRIDE |
 | Faz 6 | **Tamamlandı**: ihtiyaç yazma → Claude ile yapılandırma (yalnızca sunucu) → önizleme/düzenleme → yayınlama; PII maskeleme, kota + günlük token tavanı, idempotent taslaklar, ilan detay sayfası |
-| Faz 7 | Başlıyor (eşleştirme motoru) |
+| Faz 7 | **Tamamlandı**: sunucu tarafı eşleştirme motoru (tetikleyici, ilgi/beceri tabanlı aday havuzu, normalize skor, Türkçe gerekçeler, bildirim), ilan sahibine eşleşme listesi + gizleme; CI yeniden yeşil |
+| Faz 8 | Başlıyor (Keşfet: ilan akışı, sana uygun ilanlar, `TearOffStrip` aksiyonları) |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
 | Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
@@ -521,6 +522,76 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: Belgeyi indirme bağlantısı sunmak (moderatör cihazında kalıcı kopya bırakır); pdf.js ile çizim (ek bağımlılık, Faz 13'te yeniden değerlendirilebilir).
 - Risk: CI'da görüntüleyici dalı (CSP altında gömülü görüntüleyici) çalışmaz; bu dal yerelde tam Chromium ile doğrulanıyor.
 
+**D-054 — Eşleştirme tetikleyicisi**
+- Decision: `triggers-matchOnNeedCreated` (Firestore `onDocumentCreated`, `retry: true`). Tetikleyicinin çalışma kuralları:
+  - Eşleşme ve bildirim belgeleri sabit kimlikle, "yoksa oluştur" yöntemiyle yazılır (`ALREADY_EXISTS` başarı sayılır); eşzamanlı iki çalıştırma aynı sonucu verir.
+  - Geçici hata yeniden denenir. 1 saatten eski olayda `failed` yazılır; `failed`, `done` üzerine yazılmaz.
+  - Kapalı veya silinmiş ilan hiçbir şey yazmadan atlanır.
+  - Geçersiz ilan belgesi `failed` olur.
+- Why: Firestore tetikleyicileri en az bir kez teslim edilir. `code-review`: çakışan çalıştırma `failed` yazarak `done`'ı eziyordu; geçici hata kalıcı `failed` bırakıyordu.
+- Alternative: `publishNeed` içinde eşzamanlı hesaplama (callable süresini uzatır, iOS'la aynı yol olmaz).
+- Risk: Tetikleyici bölgesi Firestore konumuyla uyumlu olmalı (S-17, Faz 14 kontrol listesi).
+
+**D-055 — Aday havuzu**
+- Decision: Yalnızca ilanın üniversitesindeki `verificationStatus == "verified"` öğrenciler taranır; ilanın görünürlüğü (`campus`/`global`) fark etmez. Adaylar ilgi (`interests`) ve beceri (`skills`) alanlarında `array-contains-any` ile seçilir: kategori terimleri + ilan etiketleri (+ gereken beceriler). Sorgular 30 değerlik parçalara bölünür; her sorguda üst sınır `maxCandidates` = 500. Yalnızca gereken 4 alan okunur.
+- Why:
+  - Başka üniversiteden adayın adı, bölümü ve ilgi alanları ilan sahibine gösterilemez: profil görünürlüğü varsayılan olarak kampüs (D-029, Faz 11 ayarları).
+  - `code-review`: sırasız `limit(500)`, büyük kampüste aynı 500 kişiyi seçiyordu.
+- Alternative: Tüm kampüsü tarayıp puanlamak; kampüsler arası eşleşme.
+- Risk: Kampüsler arası eşleşme Faz 11'e ertelendi (profil görünürlüğü ayarıyla). Bir terim için 500'den fazla ilgili aday varsa belge kimliği sırası etkili olur (R-11).
+
+**D-056 — Skor ve eşik (S-03, S-12 geçici)**
+- Decision:
+  - Ham ağırlıklar: kampüs 30, kategori/ilgi 20, etiket 20, beceri 25, bölüm 5, güvenilirlik 5.
+  - Uygulanamayan bileşen puanlamaya katılmaz. Örneğin ilanda beceri yoksa beceri bileşeni hesaplanmaz; kalan ağırlıklar 100'e normalize edilir. `breakdown` her bileşenin puan katkısıdır; uygulanamayan bileşen `null`.
+  - Bileşen oranları: kategori terimi eşleşirse 1; etiket oranı = ortak etiket / min(3, ilandaki etiket sayısı); beceri oranı = sahip olunan gereken beceri / gereken beceri; bölüm aynıysa 1.
+  - Güvenilirlik herkes için 0,5 (S-12).
+  - Eşik: en az bir ilgili bileşen (kategori, etiket veya beceri) > 0 ve skor ≥ 40. İlan başına en fazla 20 eşleşme. Eşit skorda kullanıcı kimliğine göre sıralanır (deterministik).
+  - Kategori→terim sözlüğü config'te; sürüm `weightsVersion` alanında (`2026-09-v1`).
+- Why: Ham toplam 105 (S-03). Beceri istemeyen ilanın herkese düşük skor vermemesi gerekir. Yalnızca "aynı kampüs" ortaklığı eşleşme sayılmamalı.
+- Alternative: Tüm bileşenleri her zaman dahil etmek.
+- Risk: Terim sözlüğü sezgisel; kullanıcı onayı ve Faz 13 ölçümü gerekiyor.
+
+**D-057 — Gerekçe metinleri**
+- Decision: Gerekçeler sunucuda, iki tarafa da uyan tarafsız şablonlarla üretilir: "Aynı kampüstesiniz", "Beceri uyumu (m/n): …", "Ortak ilgi alanı: …", "{Kategori} alanına ilgi var", "Aynı bölüm". Kategori etiketleri `contracts`'ta (`NEED_CATEGORY_LABELS`); web ve functions aynı kaynağı kullanır.
+- Why: Şeffaflık ilkesi (`project-goals` §7); Claude gerekçe üretmez.
+- Risk: Gerekçeler ilan sahibine adayın ilgi ve becerilerini gösterir. Bu yalnızca aynı kampüste olur ve aynı kampüs zaten profili okuyabiliyor.
+
+**D-058 — `config/matching` birleştirmesi**
+- Decision: İsteğe bağlı belge. Eksik alanlar varsayılandan, iç içe `weights` ve `categoryTerms` alan alan tamamlanır; bilinmeyen alanlar yok sayılır. Geçersiz değerde varsayılana dönülür ve hata loglanır. Sürüm belirtilmemişse `2026-09-v1+config` yazılır.
+- Why: `code-review`: katı şema + sığ birleştirme, kısmi değişiklikleri sessizce yok sayıyordu.
+- Risk: Hatalı config yalnızca log ile fark edilir (Faz 14 alarmı).
+
+**D-059 — Eşleşme görünürlüğü**
+- Decision:
+  - İlan sahibi kendi ilanındaki tüm eşleşmeleri okur.
+  - Aday yalnızca `status == "suggested"` olan kendi eşleşmesini okur (tekil okuma ve collection-group sorgusu). Gizlendiğini öğrenemez.
+  - İlan sahibinin listesi sunucuda `status == "suggested"` filtresiyle, skora göre sıralı alınır.
+  - Engel kontrolü eşleşme oluşturulurken iki yönlü yapılır ve sıralı liste boyunca parça parça sürdürülür; tepedeki adaylar engelli olsa da alttakilerle tamamlanır.
+- Why: `code-review`: aday gizlenmiş eşleşmeyi görebiliyordu; gizlenenler 50'lik sınırı dolduruyordu.
+- Risk: Eşleşmeden sonra kurulan engel mevcut eşleşmeyi kaldırmıyor (R-10, Faz 11).
+
+**D-060 — Eşleşme bildirimi**
+- Decision: Her yeni eşleşme için adaya `notifications/{uid}/items/match_{needId}` (`type: "need-match"`, `payload{needId, title, score}`) yazılır; bildirim merkezi arayüzü Faz 10'da.
+- Why: Akış taslağı (Eşleşme → Bildirim). Sabit kimlik tekrar bildirimi engeller.
+- Risk: Web push yok (S-13).
+
+**D-061 — Emulator'lerde proxy atlatma (isteğe bağlı)**
+- Decision: `scripts/emulators-exec.mjs`, `EMULATORS_BYPASS_PROXY=1` ise emulator sürecinden proxy değişkenlerini kaldırır. Bu ortamın SessionStart hook'u, `HTTPS_PROXY` varsa bayrağı açar.
+- Why: firebase-tools emulator'ler arası istekleri (Firestore tetikleyici kaydı) `NO_PROXY`'yi yok sayarak proxy'ye gönderiyor; bu ortamın proxy'si yerel isteği engelliyordu ("request blocked"). CI'da proxy yok. `code-review`: koşulsuz kaldırma, proxy arkasındaki geliştiricide emulator indirmesini bozabilirdi → isteğe bağlı yapıldı.
+- Risk: Bayrak açıkken emulator ikili dosyaları önbellekte olmalı.
+
+**D-062 — CSP'de Firestore bağlantı denetimi görseli**
+- Decision: `img-src`'ye yalnızca `https://www.google.com/images/cleardot.gif` eklendi (tam yol; alan adının tamamı değil).
+- Why: Firestore WebChannel, ağ hatasında bağlantıyı bu görselle denetliyor (SDK kaynağında doğrulandı). Engellenirse CSP ihlali oluşuyor ve SDK "çevrimdışı" ile "sunucuya ulaşılamıyor"u ayırt edemiyor (e2e'de yakalandı).
+- Alternative: İhlali yok saymak.
+- Risk: Ağ hatasında tarayıcı Google'a bir görsel isteği yapar (Firebase zaten Google altyapısı).
+
+**D-063 — İstemci yazımları için `DocumentWriter`**
+- Decision: Connector katmanına dar bir `updateFields(path, fields)` arayüzü eklendi (Firebase: `updateDoc`; mock: bellek içi). Yalnızca Rules'un alan bazlı izin verdiği yazımlar için kullanılır (ilk kullanım: eşleşmeyi gizleme).
+- Why: Bileşenlerin Firebase SDK'sına doğrudan bağlanmaması (connector kuralı, §4.1).
+- Risk: Yok.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -673,9 +744,31 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
   - Kanal değişikliği geri alındı.
   - Ders: her push'tan sonra CI sonucu kontrol edilmeli; "CI benzeri" doğrulamada tarayıcı sürümü de aynı olmalı.
 
+**Faz 7 (2026-09-25)**
+- [x] `contracts`: eşleşme şeması (`matchSchema`, `MATCH_COMPONENTS`, `matchBreakdownSchema`), ilanda `matchStatus`/`matchCount`, `NEED_CATEGORY_LABELS`.
+- [x] Functions `matching/`:
+  - Config: varsayılanlar, birleştirme, doğrulama (D-058).
+  - Saf skor fonksiyonu (D-056, D-057).
+  - Motor: ilgili aday sorguları (D-055), Zod ile belge doğrulama, parça parça engel kontrolü, idempotent yazım, bildirimler (D-060).
+  - Tetikleyici: yeniden deneme ve olay yaşı sınırı (D-054).
+- [x] Rules: adayın collection-group okuması (yalnızca `suggested`); adayın gizlenmiş eşleşmeyi görememesi (D-059). İndeksler: kullanıcı aday havuzu (2), eşleşme listesi, aday listesi.
+- [x] Web: ilan detayında "Eşleşmeler" bölümü: `MatchCard`, gerekçeler, gizleme, durum mesajları. `DocumentWriter` (D-063). CSP bağlantı denetimi görseli (D-062).
+- [x] Performans ölçümü (Bitti Kriteri): 300 öğrencili kampüste 100 ilgili aday için `computeMatches` emulator'de **~150–200 ms**. Önceki sürüm (tüm kampüsü tarama) 301 aday için 142 ms'ydi.
+- [x] Testler:
+  - Birim: contracts 48, functions 105, web 103.
+  - Rules 101.
+  - Emulator 74 (functions 62, web 12). Kapsam: eşzamanlı çalıştırma, engel kısa listesi, bozuk belge, geçersiz ilan, ilgi/beceri havuzu, config.
+  - e2e 142 başarılı + 2 atlanan. Eşleşme akışı: yayınla → tetikleyici → eşleşme kartı → gizle; başka kampüs ve ilgisiz öğrenci görünmez.
+- [x] Faz sonu `code-review`: 15 bulgunun 15'i düzeltildi (D-054…D-059, D-061, mock writer, profil okumalarının tek seferde yapılması, paralel okuma + alan seçimi, kategori etiketlerinin tek kaynağa taşınması).
+- [x] CI: run 8 (1321119) **yeşil** (Faz 4'ten beri ilk yeşil koşu; D-053).
+
 ## 10. Sonraki adımlar
 
-1. Faz 7: eşleştirme motoru (sunucuda skor, `breakdown`, Türkçe gerekçeler, `weightsVersion`; S-03 normalize ağırlıklar; ilan yayınlanınca tetikleme; ilan sahibine ve adaya görünürlük).
+1. Faz 8: Keşfet. İçerik:
+   - Kampüs ve genel ilan akışı (görünürlük filtreli sorgular, sayfalama).
+   - "Sana uygun ilanlar" (collection-group sorgusu).
+   - `TearOffStrip` aksiyonları ("İlgileniyorum" / "Kaydet", S-24) ve bunların veri modeli.
+   - Ayrıca: ilan kapatma.
 2. Kullanıcıdan bekleyen kararlar (D-012): S-01, S-04, S-11 (kategori listesi, D-050), S-17 (Firebase bölgesi), S-25, S-30/S-31, S-32, S-33 (canlı Claude değerlendirmesi ve effort taraması — gerçek maliyet).
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
@@ -684,6 +777,11 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - Firestore TTL politikaları: `needDrafts.expiresAt`, `rateLimits.expiresAt`.
 - Params değerlerinin gözden geçirilmesi (`AI_MODEL`, kotalar, günlük token bütçesi) ve Anthropic tarafında harcama limiti/alarmı.
 - Anthropic veri saklama koşulları ve yurt dışı aktarım (S-16, S-28) hukuk onayı.
+
+**Faz 14 kontrol listesine eklenenler (Faz 7)**
+- Firestore tetikleyicisinin bölgesi veritabanı konumuyla uyumlu olmalı (S-17).
+- Yeni bileşik indeksler deploy edilmeli (`firestore.indexes.json`); emulator indeks zorunluluğu uygulamaz.
+- `config/matching` değişiklikleri için alarm (`matching.configInvalid` logu).
 
 ## 11. Açık sorular
 
@@ -737,3 +835,5 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 5 | Veri modeli, tüm koleksiyon Rules'u, 87 rules testi, indeksler, STRIDE; D-039…D-041 |
 | 2026-09-25 | 5 | Rules incelemesi sonrası sıkılaştırmalar; D-042 |
 | 2026-09-25 | 6 | İhtiyaç yazma + Claude yapılandırma, PII maskeleme, kota/bütçe, taslak/yayın, ilan detayı; D-043…D-052 |
+| 2026-09-25 | 6 | CI düzeltmesi (PDF önizleme yeteneği); D-053 |
+| 2026-09-25 | 7 | Eşleştirme motoru, eşleşme görünürlüğü, bildirim, ilan sahibine liste; D-054…D-063 |

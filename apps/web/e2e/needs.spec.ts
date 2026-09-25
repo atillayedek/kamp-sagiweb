@@ -121,3 +121,36 @@ test("geçersiz ilan kimliği bulunamadı gösterir", async ({ page }, testInfo)
   await page.goto("/kesfet/ilan/..%2Fusers");
   await expect(page.getByText("İlan bulunamadı")).toBeVisible();
 });
+
+test("yayınlanan ilan için eşleşmeler sunucuda hesaplanır ve gizlenebilir", async ({ page }, testInfo) => {
+  const violations = collectCspViolations(page);
+  const campus = `e2e-${Math.random().toString(36).slice(2, 10)}`;
+  const otherCampus = `${campus}-diger`;
+  const candidate = uniqueName("Ada");
+  const unrelated = uniqueName("Bora");
+  const elsewhere = uniqueName("Can");
+  const seed = (label: string, displayName: string, universityId: string, interests: string[]) =>
+    createVerifiedStudent({ email: uniqueEmail(testInfo, label), password: PASSWORD, displayName, universityId, interests, skills: [] });
+  await seed("aday", candidate, campus, ["basketbol"]);
+  await seed("ilgisiz", unrelated, campus, ["resim"]);
+  await seed("diger", elsewhere, otherCampus, ["basketbol"]);
+
+  await verifiedStudent(page, testInfo, "eslesme", campus);
+  await writeNeed(page, "Yarın 18:00'de spor salonunda basket oynayacak 3 kişi arıyorum");
+  await publish(page);
+
+  const matches = page.getByRole("region", { name: "Eşleşmeler" });
+  const card = matches.getByRole("article", { name: candidate });
+  await expect(card).toBeVisible({ timeout: 20_000 });
+  await expect(card).toContainText("Aynı kampüstesiniz");
+  await expect(card).toContainText("Spor alanına ilgi var");
+  await expect(matches.getByRole("article", { name: unrelated })).toHaveCount(0);
+  await expect(matches.getByRole("article", { name: elsewhere })).toHaveCount(0);
+  await expectNoA11yViolations(page);
+
+  await card.getByRole("button", { name: "Gizle" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Eşleşme gizlendi" })).toBeVisible();
+  await expect(card).toHaveCount(0);
+  await expect(matches.getByText("Şimdilik uygun öğrenci bulunamadı")).toBeVisible();
+  expect(violations).toEqual([]);
+});

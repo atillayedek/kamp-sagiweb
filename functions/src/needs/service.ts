@@ -314,6 +314,8 @@ export async function publishNeed(
       parseStatus: draft.status,
       edited: draft.parsed === null || canonical(need) !== canonical(draft.parsed),
       status: "open",
+      matchStatus: "pending",
+      matchCount: 0,
       createdAt: stamp,
       updatedAt: stamp,
     });

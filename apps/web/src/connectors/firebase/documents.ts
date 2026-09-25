@@ -7,6 +7,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  updateDoc,
   where,
   type Firestore,
   type QueryConstraint,
@@ -14,7 +15,7 @@ import {
 import type { z } from "zod";
 import { toAppError } from "../errors";
 import { parseOrThrow } from "../parse";
-import type { DocumentSource, QueryOptions } from "../types";
+import type { DocumentSource, DocumentWriter, FieldValue, QueryOptions } from "../types";
 
 function isTimestampLike(value: object): value is { toDate: () => Date } {
   return "toDate" in value && typeof value.toDate === "function";
@@ -90,5 +91,17 @@ export class FirebaseDocumentSource implements DocumentSource {
       },
       (error) => onError(toAppError(error)),
     );
+  }
+}
+
+export class FirebaseDocumentWriter implements DocumentWriter {
+  constructor(private readonly firestore: Firestore) {}
+
+  async updateFields(path: string, fields: Record<string, FieldValue>) {
+    try {
+      await updateDoc(doc(this.firestore, path), fields);
+    } catch (error) {
+      throw toAppError(error);
+    }
   }
 }

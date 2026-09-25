@@ -21,6 +21,14 @@ describe("buildContentSecurityPolicy", () => {
     expect(buildContentSecurityPolicy({ ...base, nonce: "abc" })).not.toContain("unsafe-eval");
   });
 
+  it("Google'dan yalnızca Firestore bağlantı denetimi görselini yükler", () => {
+    const images = directive(buildContentSecurityPolicy(base), "img-src");
+    expect(images).toContain("https://www.google.com/images/cleardot.gif");
+    expect(images.split(" ").filter((source) => source.includes("www.google.com"))).toEqual([
+      "https://www.google.com/images/cleardot.gif",
+    ]);
+  });
+
   it("Anthropic'e tarayıcıdan bağlantıya izin vermez", () => {
     expect(buildContentSecurityPolicy(base)).not.toContain("anthropic");
   });

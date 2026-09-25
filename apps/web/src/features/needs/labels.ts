@@ -1,22 +1,13 @@
-import type {
-  MaskedPiiKind,
-  NeedCategory,
-  NeedFailReason,
-  NeedWhenKind,
-  Visibility,
+import {
+  NEED_CATEGORY_LABELS,
+  type MaskedPiiKind,
+  type NeedFailReason,
+  type NeedWhenKind,
+  type Visibility,
 } from "@kampusagi/contracts";
 import { formatDateTime } from "@/lib/date";
 
-export const categoryLabels: Record<NeedCategory, string> = {
-  ders: "Ders çalışma",
-  proje: "Proje / takım",
-  spor: "Spor",
-  etkinlik: "Etkinlik",
-  ulasim: "Yol arkadaşlığı",
-  esya: "Eşya paylaşımı",
-  yardim: "Yardım",
-  diger: "Diğer",
-};
+export const categoryLabels = NEED_CATEGORY_LABELS;
 
 export const whenKindLabels: Record<NeedWhenKind, string> = {
   none: "Belirtilmedi",

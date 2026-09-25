@@ -60,15 +60,23 @@ export async function writeDocument(path, data) {
   await request(`${documents}/${path}`, { method: "PATCH", body: JSON.stringify({ fields: firestoreFields(data) }) });
 }
 
-export async function createVerifiedStudent({ email, password, displayName, universityId = "odtu" }) {
+export async function createVerifiedStudent({
+  email,
+  password,
+  displayName,
+  universityId = "odtu",
+  department = "Bilgisayar Mühendisliği",
+  interests = ["basketbol"],
+  skills = ["python"],
+}) {
   const uid = await createUser({ email, password, claims: { verified: true, universityId } });
   const now = new Date();
   await writeDocument(`users/${uid}`, {
     displayName,
     universityId,
-    department: "Bilgisayar Mühendisliği",
-    interests: ["basketbol"],
-    skills: ["python"],
+    department,
+    interests,
+    skills,
     bio: "",
     verificationStatus: "verified",
     reputationScore: null,

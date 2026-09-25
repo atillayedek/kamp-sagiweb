@@ -1,7 +1,7 @@
 # KampüsAğı — Tehdit Modeli
 
 > **TASLAK.** Faz 0'da açıldı; Faz 5'te STRIDE ile dolduruldu; Faz 13'te gözden geçirilecek.
-> Son güncelleme: 2026-09-25 (Faz 6)
+> Son güncelleme: 2026-09-25 (Faz 7)
 
 ## 1. Kapsam
 
@@ -46,7 +46,7 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | Firestore Rules | `*Uid == request.auth.uid` zorunlu (T) | Alan listeleri `hasOnly`; sayaç/skor istemciye kapalı (T) | `createdAt == request.time` (T) | Default deny; kampüs/genel görünürlük; `userPrivate` yalnızca sahibi (T) | Liste sorguları görünürlük filtresi olmadan reddedilir (T) | Moderatör claim'i içerik okuma yetkisi vermez; moderasyon sunucudan (D-040) |
 | Storage (belge) | Yol `verification/{uid}` = token uid (T) | Üzerine yazma/silme yok (T); sunucuda imza kontrolü (T) | Başvuru kaydı + denetim kaydı | Sahibi + moderatör; kalıcı bağlantı yok (T) | 5 MB sınırı, App Check, yetim temizliği | — |
 | `parseNeed` / `publishNeed` + Claude (Faz 6) | Oturum + App Check + doğrulanmış claim + profil durumu (C, T) | Çıktı şema doğrulaması + normalizasyon; Claude çıktısı yetki alanına yazılmaz; yayında alanlar yeniden maskelenir (T) | PII'siz log; `parseStatus`/`edited` ilanda | PII maskeleme (T); anahtar yalnızca Secret Manager; web paketinde SDK yok (`check:bundle`) | Kullanıcı kotası, taslak/yayın sınırı, parçalı günlük token tavanı (T) | Sınırlayıcıdan kaçış imkânsız (`<`/`>` değiştirilir, T); araç tanımlanmaz |
-| Eşleştirme motoru (Faz 7) | Yalnızca sunucu yazar (R, T) | Skor/gerekçe istemciye kapalı; ilan sahibi yalnızca `dismissed` (T) | `weightsVersion` | Eşleşmeyi yalnızca ilan sahibi ve aday görür (T); `config/matching` kapalı (T) | Aday sorgusu sınırlı ve indeksli | — |
+| Eşleştirme motoru (Faz 7) | Yalnızca sunucu yazar (R, T) | Skor/gerekçe istemciye kapalı; ilan sahibi yalnızca `dismissed` (T); bozuk belge tek adayı etkiler (Zod, T) | `weightsVersion`, `matchedAt` | Aday havuzu yalnızca aynı üniversite (D-055); aday yalnızca önerilen (`suggested`) eşleşmesini görür, gizlendiğini öğrenemez (T); engel oluşturmada kontrol (T); `config/matching` kapalı (T) | İlgi/beceri sorgusuyla sınırlı aday, `maxCandidates`, idempotent tetikleyici + olay yaşı sınırı (T) | Gerekçeler sunucu şablonu; Claude eşleşmeye karar vermez |
 | Mesajlaşma (Faz 10) | `senderUid` = token uid (T) | Mesaj düzenleme/silme yok (T); okunmamış sayacı sunucuda (T) | Mesajlar değiştirilemez | Yalnızca katılımcılar (T) | Uzunluk sınırı (T); hız sınırı Faz 10 | Engelleme iki yönlü (T) |
 | Bildirimler / sayaçlar | Yalnızca sunucu oluşturur (T) | Sahibi yalnızca `read: true` (T) | — | Yalnızca sahibi (T) | — | — |
 | `/admin` paneli | `moderator` claim'i + sunucu kontrolü (T) | Kararlar yalnızca callable (T) | `moderationLogs` (T) | Belge yalnızca moderatöre | — | Kendi başvurusunu inceleyemez (T) |
@@ -84,6 +84,8 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | T-25 | Alıcının istemediği kişilerden mesaj alması | Rules'ta `allowFrom` + iki yönlü engel (D-042) | 5, 10 |
 | T-26 | Kişisel bilginin yurt dışına (Anthropic) veya genel ilanla tüm üniversitelere sızması | Claude'dan önce ve yayında maskeleme; ilanda maskelenmiş metin; kullanıcıya gizlenen türlerin bildirimi (D-045) | 6, 13 |
 | T-27 | Claude'un reddettiği metnin elle doldurma yoluyla yayımlanması | Ret bir UX sinyalidir; asıl kontrol rapor + moderasyon; `parseStatus` ile önceliklendirme (D-049) | 6, 12 |
+| T-29 | Profiline çok sayıda ilgi yazarak her ilanda aday olma (bildirim spamı alma / görünürlük) | Profilde en fazla 10 ilgi + 10 beceri; ilan başına en fazla 20 eşleşme; skor ilgili bileşenlerle normalize | 7, 13 |
+| T-30 | Engellenen kişiyle eşleşme gösterimi | Oluşturmada iki yönlü engel kontrolü (T); sonradan engelde temizlik Faz 11 (R-10) | 7, 11 |
 | T-28 | Paylaşılan sayaç belgesinde kilit çakışması / bütçe aşımı | Parçalı sayaç, transaction ile ayırma, gerçek kullanımla mutabakat; sayaç hatası sonucu kaybettirmez (D-047) | 6 |
 
 ## 7. Artık riskler (Faz 5)
@@ -98,5 +100,7 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | R-06 | Hukuki metinler taslak; saklama süreleri öneri | S-16; yayından önce hukuk onayı |
 | R-07 | Elle doldurma yolu Claude'dan geçmez; reddedilen içerik bu yolla yayımlanabilir | D-049; Faz 12 moderasyon kuyruğunda `parseStatus: "failed"` ilanlar önceliklendirilebilir |
 | R-08 | PII maskeleme sezgisel (yazıyla yazılmış numaralar, kullanıcı adları, adresler maskelenmez) | D-045; Faz 13'te örnek setle yeniden değerlendirme |
+| R-10 | Eşleşme oluştuktan sonra kurulan engel mevcut eşleşmeyi/bildirimi kaldırmaz | Faz 11'de engelleme arayüzüyle birlikte sunucu tetikleyicisi |
+| R-11 | Bir terim için 500'den fazla ilgili aday varsa belge kimliği sırasına göre ilk 500 taranır | D-055; Faz 13 yük testinde ölçülecek |
 | R-09 | Günlük bütçe token cinsinden; yedek model adımı rezervasyonu az miktarda aşabilir | D-047; Anthropic tarafında harcama limiti/alarm (Faz 14) |
 

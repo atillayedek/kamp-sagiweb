@@ -12,6 +12,8 @@ import type {
   AuthConnector,
   Connectors,
   DocumentSource,
+  DocumentWriter,
+  FieldValue,
   FunctionsConnector,
   QueryOptions,
   Session,
@@ -73,6 +75,10 @@ export class InMemoryDocumentSource implements DocumentSource {
   private listeners = new Map<string, Set<() => void>>();
 
   constructor(private readonly documents = new Map<string, unknown>()) {}
+
+  peek(path: string): unknown {
+    return this.documents.get(path);
+  }
 
   set(path: string, value: unknown) {
     this.documents.set(path, value);
@@ -155,11 +161,32 @@ export class MockStorageConnector implements StorageConnector {
   }
 }
 
+export class InMemoryDocumentWriter implements DocumentWriter {
+  readonly writes: Array<{ path: string; fields: Record<string, FieldValue> }> = [];
+
+  constructor(private readonly documents: InMemoryDocumentSource) {}
+
+  async updateFields(path: string, fields: Record<string, FieldValue>) {
+    const current = this.documents.peek(path);
+    if (!current || typeof current !== "object") throw new AppError("not-found", "Belge bulunamadı.");
+    this.writes.push({ path, fields });
+    this.documents.set(path, { ...current, ...fields });
+  }
+}
+
+const unsupportedWriter: DocumentWriter = {
+  async updateFields() {
+    throw new Error("Özel bir DocumentSource verildiğinde writer da verilmelidir.");
+  },
+};
+
 export function createMockConnectors(overrides: Partial<Connectors> = {}): Connectors {
+  const documents = overrides.documents ?? new InMemoryDocumentSource();
   return {
     auth: new InMemoryAuthConnector(),
     functions: new MockFunctionsConnector(),
-    documents: new InMemoryDocumentSource(),
+    documents,
+    writer: documents instanceof InMemoryDocumentSource ? new InMemoryDocumentWriter(documents) : unsupportedWriter,
     storage: new MockStorageConnector(),
     analytics: noopAnalytics,
     ...overrides,

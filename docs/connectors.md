@@ -11,6 +11,7 @@ Web iş mantığı Firebase SDK'sına doğrudan bağlanmaz; `Connectors` arayüz
 | `AuthConnector` | Oturumu izleme, token'ı zorla yenileyip claim'leri okuma, çıkış. Claim'ler **salt-okunur** ve `customClaimsSchema` ile doğrulanır | `FirebaseAuthConnector` (`onIdTokenChanged`, `getIdTokenResult`) | `InMemoryAuthConnector` |
 | `FunctionsConnector` | Callable çağrısı: istek ve yanıt `contracts` şemasıyla doğrulanır | `FirebaseFunctionsConnector` (`httpsCallable`) | `MockFunctionsConnector` |
 | `DocumentSource` | Belge okuma/izleme; her belge Zod şemasıyla ayrıştırılır, sözleşme dışı veri `AppError("internal")` olur | `FirebaseDocumentSource` (`getDoc`, `onSnapshot`) | `InMemoryDocumentSource` |
+| `DocumentWriter` | Rules'un istemciye izin verdiği dar alan güncellemeleri (ör. eşleşmeyi gizleme); her yazım Rules'ta alan bazlı doğrulanır | `FirebaseDocumentWriter` (`updateDoc`) | `InMemoryDocumentWriter` |
 | `StorageConnector` | İlerleme bildirimli ve iptal edilebilir yükleme | `FirebaseStorageConnector` (`uploadBytesResumable`) | `MockStorageConnector` |
 | `AnalyticsConnector` | Olay takibi — **BELİRSİZ (S-20)**; yalnızca rıza sonrası | — | `noopAnalytics` |
 

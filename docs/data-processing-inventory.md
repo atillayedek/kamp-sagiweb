@@ -28,7 +28,7 @@
 | İhtiyaç taslağı | Maskelenmiş metin, gizlenen bilgi türleri, Claude önerisi, güven değeri, model adı, kullanıcı kimliği (`needDrafts`) | Önizleme, idempotency, yayına hazırlık | BELİRSİZ | 24 saat (`expiresAt`); günlük temizlik işi + Firestore TTL (Faz 14) — ÖNERİ | Firebase (Google); istemciye kapalı | Süre dolunca silinir; hesap silmede anında (Faz 11) |
 | Kullanım sayaçları | Kullanıcı kimliği (belge adında), günlük taslak/ayrıştırma/yayın sayıları; kimliksiz günlük token toplamı (`rateLimits`) | Kötüye kullanım ve maliyet sınırı | BELİRSİZ | 48 saat (`expiresAt`) — ÖNERİ | Firebase (Google); istemciye kapalı | Süre dolunca silinir |
 | Mesajlar | Mesaj metni, zaman | Mesajlaşma | BELİRSİZ | BELİRSİZ | Firebase (Google) | BELİRSİZ (karşı tarafın kopyası sorusu) |
-| Eşleşme / itibar | Skor, gerekçe, itibar puanı | Eşleşme | BELİRSİZ | BELİRSİZ | Firebase (Google) | Hesap silmede silinir |
+| Eşleşme / itibar | Skor, bileşen puanları, gerekçeler (ortak ilgi/beceri, bölüm eşleşmesi), eşleşme bildirimi; itibar puanı henüz hesaplanmıyor (S-12) | Eşleşme önerisi | BELİRSİZ | BELİRSİZ | Firebase (Google); ilan sahibi aynı üniversitedeki adayın adını, bölümünü ve gerekçeleri görür; aday yalnızca kendi eşleşmesini görür | Hesap silmede silinir (Faz 11) |
 | Moderasyon | Raporlar, kararlar, denetim kayıtları | Güvenlik, denetim | BELİRSİZ | BELİRSİZ | Firebase (Google) | Denetim izi saklama kuralı BELİRSİZ |
 | Teknik | Oturum token'ları, App Check, sunucu log'ları (PII'siz) | Güvenlik, hata ayıklama | BELİRSİZ | BELİRSİZ | Firebase / Google Cloud | Log saklama süresi BELİRSİZ |
 | Analitik / çerez | BELİRSİZ (S-20) | BELİRSİZ | Açık rıza (varsayım, doğrulanacak) | BELİRSİZ | BELİRSİZ | Rıza geri alınınca durur |
@@ -38,7 +38,7 @@
 1. Kayıt → Firebase Auth → `users` / `userPrivate`
 2. Belge yükleme → Storage `verification/{uid}/…` → moderatör incelemesi → karar (`verificationRequests`)
 3. İhtiyaç metni → `v1-parseNeed` → temizleme + PII maskeleme → kota/bütçe → Anthropic API → şema doğrulama + normalizasyon → `needDrafts` (24 saat) → öğrenci önizler/düzenler → `v1-publishNeed` (yeniden maskeleme) → `needs`
-4. Eşleştirme → `needs/{id}/matches` → `notifications`
+4. İlan oluşturuldu → sunucu tetikleyicisi → aynı üniversitedeki doğrulanmış ve ilgili öğrenciler (profil ilgi/beceri alanları) → skor + gerekçe → `needs/{id}/matches` → `notifications`
 5. Mesajlaşma → `conversations/{id}/messages`
 6. Veri dışa aktarma → `dataExports` → kısa ömürlü indirme bağlantısı → süre sonunda silme
 7. Hesap silme → belge silme + kişisel veri silme + içerik anonimleştirme

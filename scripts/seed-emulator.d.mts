@@ -7,4 +7,7 @@ export function createVerifiedStudent(input: {
   password: string;
   displayName: string;
   universityId?: string;
+  department?: string;
+  interests?: string[];
+  skills?: string[];
 }): Promise<string>;

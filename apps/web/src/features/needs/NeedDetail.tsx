@@ -12,6 +12,7 @@ import { useSignedIn } from "@/features/app/guards";
 import { useDocument } from "@/features/data/useDocument";
 import { formatDateTime } from "@/lib/date";
 import { categoryLabels, formatParticipants, formatWhen, visibilityLabels } from "./labels";
+import { NeedMatches } from "./NeedMatches";
 
 const OTHER_CAMPUS_AUTHOR = { name: "Doğrulanmış öğrenci", department: "Başka bir üniversite", verified: true };
 const UNKNOWN_AUTHOR = { name: "Öğrenci", department: "Profil bilgisi alınamadı", verified: false };
@@ -112,11 +113,15 @@ export function NeedDetail({ needId }: { needId: string }) {
         <p className="whitespace-pre-line rounded-card border border-line bg-surface p-4 text-ink">{data.rawText}</p>
       </section>
       {own && (
-        <EmptyState
-          icon="users"
-          title="Eşleşmeler hazırlanıyor"
-          description="İlanına uygun öğrenciler burada listelenecek."
-        />
+        <section aria-labelledby="need-matches" className="flex flex-col gap-3">
+          <h2 id="need-matches" className="text-xl font-bold text-ink">
+            Eşleşmeler
+          </h2>
+          <p className="text-sm text-ink-muted">
+            Skor ve gerekçeler sunucuda, ilanın ve öğrencilerin profillerinden hesaplanır.
+          </p>
+          <NeedMatches needId={needId} needStatus={data.status} matchStatus={data.matchStatus} matchCount={data.matchCount} />
+        </section>
       )}
     </div>
   );

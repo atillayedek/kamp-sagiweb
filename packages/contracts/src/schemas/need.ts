@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isoDateTimeSchema, uidSchema, universityIdSchema, visibilitySchema } from "./common";
+import { needMatchStatusSchema } from "./match";
 import { boundedText, tagList } from "./text";
 
 export const NEED_CATEGORIES = ["ders", "proje", "spor", "etkinlik", "ulasim", "esya", "yardim", "diger"] as const;
@@ -7,6 +8,17 @@ export const NEED_CATEGORIES = ["ders", "proje", "spor", "etkinlik", "ulasim", "
 export const needCategorySchema = z.enum(NEED_CATEGORIES);
 
 export type NeedCategory = z.infer<typeof needCategorySchema>;
+
+export const NEED_CATEGORY_LABELS: Record<NeedCategory, string> = {
+  ders: "Ders çalışma",
+  proje: "Proje / takım",
+  spor: "Spor",
+  etkinlik: "Etkinlik",
+  ulasim: "Yol arkadaşlığı",
+  esya: "Eşya paylaşımı",
+  yardim: "Yardım",
+  diger: "Diğer",
+};
 
 export const NEED_WHEN_KINDS = ["none", "exact", "range", "flexible"] as const;
 
@@ -116,6 +128,8 @@ export const needSchema = z.object({
   parseStatus: needParseStatusSchema,
   edited: z.boolean(),
   status: needStatusSchema,
+  matchStatus: needMatchStatusSchema.optional(),
+  matchCount: z.int().min(0).optional(),
   createdAt: isoDateTimeSchema.nullable(),
   updatedAt: isoDateTimeSchema.nullable(),
 });

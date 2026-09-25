@@ -10,6 +10,12 @@ if (!only || command.length === 0) {
 const env = { ...process.env };
 delete env.JAVA_TOOL_OPTIONS;
 
+// firebase-tools sends emulator-to-emulator requests (e.g. Firestore trigger registration) through
+// HTTPS_PROXY and ignores NO_PROXY. Opt in where a proxy blocks local traffic; emulator binaries must be cached.
+if (env.EMULATORS_BYPASS_PROXY === "1") {
+  for (const key of ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"]) delete env[key];
+}
+
 const firebaseBin = fileURLToPath(
   new URL(`../node_modules/.bin/firebase${process.platform === "win32" ? ".cmd" : ""}`, import.meta.url),
 );
