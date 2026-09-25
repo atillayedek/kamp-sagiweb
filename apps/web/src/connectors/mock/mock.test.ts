@@ -53,3 +53,18 @@ describe("MockStorageConnector", () => {
     await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
   });
 });
+
+describe("InMemoryDocumentSource.queryCollection", () => {
+  it("filtreler, sıralar ve sınırlar", async () => {
+    const documents = new InMemoryDocumentSource(
+      new Map<string, unknown>([
+        ["istekler/a", { durum: "bekliyor", sira: 2 }],
+        ["istekler/b", { durum: "onaylandi", sira: 1 }],
+        ["istekler/c", { durum: "bekliyor", sira: 1 }],
+      ]),
+    );
+    const schema = z.object({ durum: z.string(), sira: z.number() });
+    const result = await documents.queryCollection("istekler", { where: [["durum", "==", "bekliyor"]], orderBy: ["sira", "asc"], limit: 5 }, schema);
+    expect(result.map((item) => item.id)).toEqual(["c", "a"]);
+  });
+});

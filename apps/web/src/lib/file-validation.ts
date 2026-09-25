@@ -1,6 +1,7 @@
+import { hasPdfSignature, PDF_SIGNATURE_LENGTH } from "@kampusagi/contracts";
 import { formatMegabytes } from "./format";
 
-const PDF_SIGNATURE = [0x25, 0x50, 0x44, 0x46, 0x2d];
+export { hasPdfSignature };
 
 export type PdfValidationResult = { ok: true } | { ok: false; message: string };
 
@@ -14,14 +15,10 @@ export function validatePdfMetadata(file: FileLike, maxBytes: number): PdfValida
   return { ok: true };
 }
 
-export function hasPdfSignature(header: Uint8Array): boolean {
-  return PDF_SIGNATURE.every((byte, index) => header[index] === byte);
-}
-
 export async function validatePdfFile(file: File, maxBytes: number): Promise<PdfValidationResult> {
   const metadata = validatePdfMetadata(file, maxBytes);
   if (!metadata.ok) return metadata;
-  const header = new Uint8Array(await file.slice(0, PDF_SIGNATURE.length).arrayBuffer());
+  const header = new Uint8Array(await file.slice(0, PDF_SIGNATURE_LENGTH).arrayBuffer());
   if (!hasPdfSignature(header)) return { ok: false, message: "Dosya geçerli bir PDF değil." };
   return { ok: true };
 }

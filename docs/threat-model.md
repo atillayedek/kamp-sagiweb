@@ -70,6 +70,11 @@ Web istemcisi (landing + uygulama + `/admin`), Cloud Functions, Firestore, Stora
 | T-12 | Açık yönlendirme | `safeNextPath` (göreli yol zorunlu, `//`, `\`, kontrol karakteri, farklı origin reddi); birim + e2e testleri (Faz 3'te uygulandı) | 3 |
 | T-15 | Hesap sayımı (şifre sıfırlamada hesabın var olup olmadığının anlaşılması) | `auth/user-not-found` başarı gibi yanıtlanır; giriş hatası tek tip mesaj ("E-posta veya şifre hatalı.") (Faz 3) | 3 |
 | T-16 | Kullanıcının profiline sunucu alanı (doğrulama durumu, itibar) yazması | İstemci yazımı Rules'ta kapalı; callable'larda strict Zod şeması (D-027) (Faz 3) | 3 |
+| T-17 | Onaylanmış belgenin sonradan değiştirilmesi | Storage `create` için `resource == null`; güncelleme/silme kapalı (Faz 4) | 4 |
+| T-18 | Moderatörün kendi başvurusunu onaylaması | Sunucuda engelli + UI'da devre dışı (D-038) | 4 |
+| T-19 | Eşzamanlı kararlar nedeniyle tutarsız yetki | Claim'ler commit sonrası; claim onarım callable'ı (D-037) | 4 |
+| T-20 | Belgenin kalıcı bağlantıyla sızması | `getDownloadURL` kullanılmaz; bellek içi blob önizleme (D-035) | 4 |
+| T-21 | Depolama kötüye kullanımı (çok sayıda yükleme) | 5 MB sınırı, App Check, reddedilen gönderimde anında silme, 24 saatlik yetim temizliği (D-036) | 4, 13 |
 
 ## 7. Artık riskler
 

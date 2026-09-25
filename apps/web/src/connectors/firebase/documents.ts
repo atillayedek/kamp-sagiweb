@@ -1,8 +1,20 @@
-import { collection, doc, getDoc, getDocs, onSnapshot, type Firestore } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+  type Firestore,
+  type QueryConstraint,
+} from "firebase/firestore";
 import type { z } from "zod";
 import { toAppError } from "../errors";
 import { parseOrThrow } from "../parse";
-import type { DocumentSource } from "../types";
+import type { DocumentSource, QueryOptions } from "../types";
 
 function isTimestampLike(value: object): value is { toDate: () => Date } {
   return "toDate" in value && typeof value.toDate === "function";
@@ -34,6 +46,24 @@ export class FirebaseDocumentSource implements DocumentSource {
     let snapshot;
     try {
       snapshot = await getDocs(collection(this.firestore, path));
+    } catch (error) {
+      throw toAppError(error);
+    }
+    return snapshot.docs.map((item) => ({
+      id: item.id,
+      data: parseOrThrow(schema, normalizeFirestoreData(item.data()), `${path}/${item.id}`),
+    }));
+  }
+
+  async queryCollection<S extends z.ZodType>(path: string, options: QueryOptions, schema: S) {
+    const constraints: QueryConstraint[] = [
+      ...(options.where ?? []).map(([field, operator, value]) => where(field, operator, value)),
+      ...(options.orderBy ? [orderBy(options.orderBy[0], options.orderBy[1])] : []),
+      ...(options.limit ? [limit(options.limit)] : []),
+    ];
+    let snapshot;
+    try {
+      snapshot = await getDocs(query(collection(this.firestore, path), ...constraints));
     } catch (error) {
       throw toAppError(error);
     }

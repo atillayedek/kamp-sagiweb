@@ -2,9 +2,10 @@
 
 import type { PublicProfile } from "@kampusagi/contracts";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/States";
+import { useConnectors } from "@/connectors/ConnectorsProvider";
 import type { Session } from "@/connectors/types";
 import { useOwnProfile } from "@/features/profile/useOwnProfile";
 import { useSession } from "@/features/session/SessionProvider";
@@ -40,6 +41,26 @@ export function RedirectIfSignedIn({ toOnboarding = false, children }: { toOnboa
   return children;
 }
 
+export function RequireModerator({ children }: { children: (session: Session) => ReactNode }) {
+  return (
+    <RequireSession>
+      {(session) =>
+        session.claims.moderator === true ? (
+          children(session)
+        ) : (
+          <main id="icerik" className="mx-auto max-w-lg px-4 py-16">
+            <ErrorState
+              icon="lock"
+              title="Bu sayfaya erişim yetkin yok"
+              description="Moderatör paneli yalnızca yetkili moderatörlere açıktır."
+            />
+          </main>
+        )
+      }
+    </RequireSession>
+  );
+}
+
 export function RequireSession({ children }: { children: (session: Session) => ReactNode }) {
   const session = useSession();
   const pathname = usePathname();
@@ -52,9 +73,28 @@ export function RequireProfile({ children }: { children: ReactNode }) {
   return <RequireSession>{(session) => <ProfileGate session={session}>{children}</ProfileGate>}</RequireSession>;
 }
 
+function useClaimsSync(session: Session, verificationStatus: string | null) {
+  const { refresh } = useSession();
+  const { functions } = useConnectors();
+  const attempted = useRef<string | null>(null);
+  const claimsVerified = session.claims.verified === true;
+  const outOfSync = verificationStatus !== null && (verificationStatus === "verified") !== claimsVerified;
+
+  useEffect(() => {
+    if (!outOfSync || attempted.current === verificationStatus) return;
+    attempted.current = verificationStatus;
+    functions
+      .call("syncVerificationClaims", {})
+      .catch(() => undefined)
+      .then(() => refresh())
+      .catch(() => undefined);
+  }, [functions, outOfSync, refresh, verificationStatus]);
+}
+
 function ProfileGate({ session, children }: { session: Session; children: ReactNode }) {
   const profile = useOwnProfile(session.user.uid);
   const pathname = usePathname();
+  useClaimsSync(session, profile.status === "ready" ? profile.profile.verificationStatus : null);
   if (profile.status === "loading") return <FullPageLoading label="Profilin yükleniyor…" />;
   if (profile.status === "missing") return <Redirect to={onboardingPath(pathname)} />;
   if (profile.status === "error") {

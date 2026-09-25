@@ -25,6 +25,23 @@ export async function seedUniversities() {
   return Object.keys(universities).length;
 }
 
+export async function createUser({ email, password, claims }) {
+  const response = await fetch(`${auth}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-api-key`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+  if (!response.ok) throw new Error(`Kullanıcı oluşturulamadı: ${response.status} ${await response.text()}`);
+  const { localId } = await response.json();
+  if (claims) {
+    await request(`${auth}/identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:update`, {
+      method: "POST",
+      body: JSON.stringify({ localId, customAttributes: JSON.stringify(claims) }),
+    });
+  }
+  return localId;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await resetEmulators();
   console.log(`Emulator sıfırlandı; ${await seedUniversities()} demo üniversite yüklendi.`);

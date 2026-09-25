@@ -19,7 +19,9 @@
 |---|---|---|---|---|---|---|
 | Kimlik / iletişim | E-posta, görünen ad | Hesap, iletişim | BELİRSİZ | BELİRSİZ | Firebase (Google) | Hesap silmede silinir |
 | Öğrenim | Üniversite, bölüm | Kampüs izolasyonu, eşleşme | BELİRSİZ | BELİRSİZ | Firebase (Google) | Hesap silmede silinir |
-| Öğrenci belgesi | e-Devlet öğrenci belgesi PDF'i (içeriği Faz 4'te netleşir; kimlik numarası içermesi beklenir) | Öğrenci doğrulaması | BELİRSİZ | BELİRSİZ (red sonrası / onay sonrası ayrı ayrı) | Firebase Storage (Google); moderatör | Süre sonunda ve hesap silmede silinir |
+| Öğrenci belgesi | e-Devlet öğrenci belgesi PDF'i (`verification/{uid}/{requestId}.pdf`; kimlik numarası içermesi beklenir) | Öğrenci doğrulaması | BELİRSİZ | ÖNERİ: karardan 30 gün sonra; başvuruya dönüşmeyen yükleme 24 saat (D-034) — hukuk onayı bekliyor | Firebase Storage (Google); yalnızca inceleyen moderatör (kalıcı bağlantı üretilmez) | Günlük iş siler; hesap silmede anında (Faz 11) |
+| Doğrulama kaydı | Başvuru durumu, üniversite, karar, ret sebebi (enum) ve moderatör notu, inceleyen moderatör kimliği, zamanlar | Doğrulama süreci ve denetim | BELİRSİZ | BELİRSİZ (belge silindikten sonra kayıt kalır) | Firebase (Google); ret sebebi yalnızca sahibine (`userPrivate`) | Hesap silmede anonimleştirme kararı Faz 11 |
+| Denetim kaydı | Moderatör işlemleri (`moderationLogs`: işlem, moderatör, hedef kullanıcı, sebep, zaman) | Güvenlik ve hesap verebilirlik | BELİRSİZ | BELİRSİZ | Firebase (Google); yalnızca moderatörler | Hesap silmede anonimleştirme kararı Faz 11 |
 | Profil | İlgi alanları, beceriler, bio, fotoğraf | Eşleşme, profil | BELİRSİZ | BELİRSİZ | Firebase (Google) | Hesap silmede silinir |
 | Kullanıcı içeriği | İhtiyaç ilanları, gönderiler, yorumlar | Platform işlevi | BELİRSİZ | BELİRSİZ | Firebase (Google) | Anonimleştirme kapsamı BELİRSİZ (S-18) |
 | İhtiyaç metni → Claude | Ham ihtiyaç metni (PII maskelenmiş) | Metni yapılandırma | BELİRSİZ | Anthropic tarafı saklama koşulları BELİRSİZ | **Anthropic (yurt dışı; `inference_geo` yalnızca `us`/`global`)** | Kaynak metin `needs` belgesinde; silme politikası BELİRSİZ |

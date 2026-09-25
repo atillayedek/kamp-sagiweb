@@ -11,7 +11,7 @@ beforeAll(async () => {
   env = await createTestEnv();
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), "kurali-olmayan/u1"), { ownerUid: "u1" });
-    await uploadString(ref(context.storage(), "verification/u1/belge.pdf"), "%PDF-1.7");
+    await uploadString(ref(context.storage(), "kurali-olmayan/u1/dosya.pdf"), "%PDF-1.7");
   });
 });
 
@@ -36,16 +36,16 @@ describe("Firestore varsayılan olarak her şeyi reddeder", () => {
 
   it("moderatör claim'i tek başına açık kural olmadan erişim sağlamaz", async () => {
     const db = env.authenticatedContext("mod", verifiedModeratorClaims).firestore();
-    await assertFails(getDoc(doc(db, "moderationLogs/l1")));
+    await assertFails(getDoc(doc(db, "kurali-olmayan/u1")));
   });
 });
 
 describe("Storage varsayılan olarak her şeyi reddeder", () => {
   it("anonim yükleme reddedilir", async () => {
-    await assertFails(uploadString(ref(env.unauthenticatedContext().storage(), "verification/u1/belge.pdf"), "%PDF-1.7"));
+    await assertFails(uploadString(ref(env.unauthenticatedContext().storage(), "kurali-olmayan/u1/yeni.pdf"), "%PDF-1.7"));
   });
 
   it("oturumlu kullanıcı açık kural olmadan okuyamaz", async () => {
-    await assertFails(getBytes(ref(env.authenticatedContext("u1").storage(), "verification/u1/belge.pdf")));
+    await assertFails(getBytes(ref(env.authenticatedContext("u1").storage(), "kurali-olmayan/u1/dosya.pdf")));
   });
 });

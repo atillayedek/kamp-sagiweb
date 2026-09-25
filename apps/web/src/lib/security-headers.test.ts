@@ -42,6 +42,11 @@ describe("buildContentSecurityPolicy", () => {
     expect(directive(csp, "frame-src")).toContain("https://recaptcha.google.com/recaptcha/");
   });
 
+  it("çerçeveye yalnızca uygulama rotalarında blob: önizlemesi için izin verir", () => {
+    expect(directive(buildContentSecurityPolicy(base), "frame-src")).toBe("frame-src 'none'");
+    expect(directive(buildContentSecurityPolicy({ ...base, nonce: "abc" }), "frame-src")).toBe("frame-src 'self' blob:");
+  });
+
   it("HTTPS olmayan ortamda upgrade-insecure-requests eklemez", () => {
     expect(buildContentSecurityPolicy({ ...base, https: false })).not.toContain("upgrade-insecure-requests");
   });

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { VerifiedBadge } from "@/components/ui/Badge";
 import { Banner } from "@/components/ui/Banner";
-import { Button } from "@/components/ui/Button";
+import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/Tag";
 import { useToast } from "@/components/ui/Toast";
@@ -109,6 +109,14 @@ export function ProfilePage() {
           </div>
         )}
       </Card>
+      {session.claims.moderator === true && (
+        <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
+          <p className="font-semibold">Moderatör yetkin var.</p>
+          <ButtonLink href="/admin" variant="secondary">
+            Moderatör paneli
+          </ButtonLink>
+        </Card>
+      )}
       <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
         <p className="text-ink-muted">{session.user.email}</p>
         <Button variant="ghost" onClick={signOut} disabled={signingOut}>

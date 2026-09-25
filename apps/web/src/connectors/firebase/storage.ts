@@ -1,4 +1,4 @@
-import { ref, uploadBytesResumable, type FirebaseStorage } from "firebase/storage";
+import { getBlob, ref, uploadBytesResumable, type FirebaseStorage } from "firebase/storage";
 import { toAppError } from "../errors";
 import type { StorageConnector, UploadOptions } from "../types";
 
@@ -18,5 +18,13 @@ export class FirebaseStorageConnector implements StorageConnector {
       );
     });
     return { done, cancel: () => void task.cancel() };
+  }
+
+  async download(path: string) {
+    try {
+      return await getBlob(ref(this.storage, path));
+    } catch (error) {
+      throw toAppError(error);
+    }
   }
 }

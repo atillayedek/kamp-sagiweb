@@ -34,9 +34,20 @@ export interface FunctionsConnector {
 
 export type ListedDocument<T> = { id: string; data: T };
 
+export type QueryOptions = {
+  where?: Array<[field: string, operator: "==" | "<" | "<=" | ">" | ">=", value: string | number | boolean]>;
+  orderBy?: [field: string, direction: "asc" | "desc"];
+  limit?: number;
+};
+
 export interface DocumentSource {
   getDocument<S extends z.ZodType>(path: string, schema: S): Promise<z.output<S> | null>;
   listCollection<S extends z.ZodType>(path: string, schema: S): Promise<Array<ListedDocument<z.output<S>>>>;
+  queryCollection<S extends z.ZodType>(
+    path: string,
+    options: QueryOptions,
+    schema: S,
+  ): Promise<Array<ListedDocument<z.output<S>>>>;
   watchDocument<S extends z.ZodType>(
     path: string,
     schema: S,
@@ -57,6 +68,7 @@ export type UploadHandle = {
 
 export interface StorageConnector {
   upload(path: string, file: Blob, options: UploadOptions): UploadHandle;
+  download(path: string): Promise<Blob>;
 }
 
 export interface AnalyticsConnector {

@@ -13,6 +13,7 @@ import type {
   Connectors,
   DocumentSource,
   FunctionsConnector,
+  QueryOptions,
   Session,
   StorageConnector,
   UploadOptions,
@@ -89,6 +90,18 @@ export class InMemoryDocumentSource implements DocumentSource {
       .map(([key, value]) => ({ id: key.slice(prefix.length), data: parseOrThrow(schema, value, key) }));
   }
 
+  async queryCollection<S extends z.ZodType>(path: string, options: QueryOptions, schema: S) {
+    let items = (await this.listCollection(path, schema)) as Array<{ id: string; data: Record<string, unknown> }>;
+    for (const [field, operator, value] of options.where ?? []) {
+      items = items.filter((item) => compare(item.data[field], operator, value));
+    }
+    if (options.orderBy) {
+      const [field, direction] = options.orderBy;
+      items = [...items].sort((a, b) => String(a.data[field]).localeCompare(String(b.data[field])) * (direction === "asc" ? 1 : -1));
+    }
+    return (options.limit ? items.slice(0, options.limit) : items) as Array<{ id: string; data: z.output<S> }>;
+  }
+
   watchDocument<S extends z.ZodType>(
     path: string,
     schema: S,
@@ -106,8 +119,26 @@ export class InMemoryDocumentSource implements DocumentSource {
   }
 }
 
+function compare(actual: unknown, operator: string, expected: string | number | boolean): boolean {
+  if (operator === "==") return actual === expected;
+  if (typeof actual !== typeof expected) return false;
+  const a = actual as string | number;
+  const b = expected as string | number;
+  if (operator === "<") return a < b;
+  if (operator === "<=") return a <= b;
+  if (operator === ">") return a > b;
+  return a >= b;
+}
+
 export class MockStorageConnector implements StorageConnector {
   readonly uploads: Array<{ path: string; contentType: string; size: number }> = [];
+  private readonly files = new Map<string, Blob>();
+
+  async download(path: string) {
+    const file = this.files.get(path);
+    if (!file) throw new AppError("not-found");
+    return file;
+  }
 
   upload(path: string, file: Blob, options: UploadOptions) {
     let cancelled = false;
@@ -116,6 +147,7 @@ export class MockStorageConnector implements StorageConnector {
         if (cancelled) return reject(new AppError("cancelled"));
         options.onProgress?.(100);
         this.uploads.push({ path, contentType: options.contentType, size: file.size });
+        this.files.set(path, file);
         resolve({ path });
       });
     });

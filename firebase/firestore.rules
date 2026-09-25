@@ -39,6 +39,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /verificationRequests/{requestId} {
+      allow read: if isModerator() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /moderationLogs/{logId} {
+      allow read: if isModerator();
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

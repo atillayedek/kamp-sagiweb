@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 4** (Faz 0–3 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 5** (Faz 0–4 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -17,7 +17,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | Faz 1 | **Tamamlandı**: tasarım token'ları, bileşen kütüphanesi + `TearOffStrip`, `/tasarim` galerisi, landing, yasal sayfa taslakları, SEO, testler |
 | Faz 2 | **Tamamlandı**: `packages/contracts`, `functions/` (callable sarmalayıcı + `v1-ping`), `firebase/` (default deny + rules testleri), web connector katmanı, CSP, CI, SessionStart hook |
 | Faz 3 | **Tamamlandı**: e-posta/şifre ile kimlik doğrulama (geçici, S-04), onboarding ve profil callable'ları, `users`/`userPrivate`/`universities` Rules, dinamik `(app)` rota grubu, dört sekmeli kabuk, profil sayfası |
-| Faz 4 | Başlıyor |
+| Faz 4 | **Tamamlandı**: belge yükleme + sunucu doğrulaması, moderatör paneli (`/admin`), onay/red + claim, denetim kaydı, kilitler, saklama/temizlik işi |
+| Faz 5 | Başlıyor |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
 | Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
@@ -75,7 +76,7 @@ Keşif tarihi: 2026-09-25. "Active" = projede kullanılacak; "Koşullu" = yalnı
 | `run` | Yerleşik | Faz 1'den itibaren uygulamayı başlatıp değişikliği gerçek tarayıcıda doğrulama. Faz 1'de doğrulama doğrudan Playwright (ekran görüntüsü + e2e) ile yapıldı | Active |
 | `startup-hook-skill` (session-start-hook) | Kullanıcı düzeyi (`~/.claude/skills/session-start-hook`) | Faz 2: `.claude/hooks/session-start.sh` oluşturuldu (senkron, yalnızca web; `pnpm install`, `PW_CHROMIUM_PATH`) | Active (uygulandı) |
 | `init` | Yerleşik | Faz 2 sonrası `CLAUDE.md`'nin kod tabanına göre güncellenmesi | Koşullu |
-| `pdf` | Anthropic skill'i | Faz 4: test fixture PDF'leri üretme ve PDF yapısını inceleme (Python araçları). Üretimdeki doğrulama Node tarafında yazılır | Koşullu |
+| `pdf` | Anthropic skill'i | Faz 4'te gerekmedi: e2e için elle yazılmış en küçük geçerli PDF yeterli oldu (Chromium görüntüleyicisi açıyor) | Koşullu |
 | `skill-creator` | Anthropic skill'i | Missing Skill'ler için proje skill'i yazmak istenirse (S-27) | Koşullu |
 | `update-config` | Yerleşik | Hook/izin ayarı gerekirse (ör. commit öncesi kontrol) | Koşullu |
 | `fewer-permission-prompts` | Yerleşik | İzin istemleri çoğalırsa | Koşullu |
@@ -381,6 +382,41 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: Tam liste (YÖK kaynağından) — doğrulanmadan eklenmedi.
 - Risk: Yok.
 
+**D-033 — Doğrulama akışı**
+- Decision: İstemci PDF'i `verification/{uid}/{requestId}.pdf` yoluna yükler (Storage Rules: sahibi, yalnızca oluşturma, PDF türü, ≤ 5 MB, ad biçimi, üzerine yazma yok) → `v1-submitVerification` sunucuda tür/boyut/`%PDF-` imzasını kontrol eder, sonra transaction ile `verificationRequests/{id}` (`pending`), `users.verificationStatus = pending` ve `userPrivate.verification` yazar. Başarısız gönderimde yüklenen dosya hemen silinir. Başvuru oluşturma istemciye kapalıdır (taslak modelde "oluşturma K" idi; daha sıkı).
+- Why: Storage Rules dosya içeriğini göremez; imza kontrolü yalnızca sunucuda mümkündür. Ret sebebi gibi kişisel bilgiler aynı üniversitedeki öğrencilerin okuyabildiği `users` belgesine değil, yalnızca sahibin okuyabildiği `userPrivate`'e yazılır.
+- Alternative: Storage tetikleyicisi (`onObjectFinalized`) ile eşzamansız doğrulama.
+- Risk: Düşük.
+
+**D-034 — Saklama ve temizlik (ÖNERİ, hukuk onayı bekliyor)**
+- Decision: Karar verilen belgeler karardan `VERIFICATION_RETENTION_DAYS = 30` gün sonra, başvuruya dönüşmemiş yüklemeler 24 saat sonra günlük `jobs-purgeVerificationFiles` (Europe/Istanbul 03:30) ile silinir; başvuru kaydında `fileDeletedAt` tutulur.
+- Why: Veri minimizasyonu; itiraz/denetim için kısa bir pencere. Süre hukuk kararıyla değişebilir (S-16).
+- Alternative: Karar anında silmek.
+- Risk: Süre değişirse sabit tek yerden güncellenir. Hesap silmede anında silme Faz 11'de.
+
+**D-035 — Moderatör önizlemesi**
+- Decision: `getBlob` (Storage Rules: sahibi + moderatör) + bellek içi `blob:` URL + `<iframe>`; kalıcı indirme token'ı (`getDownloadURL`) **kullanılmaz**. CSP'de yalnızca uygulama rotalarında `frame-src 'self' blob:`. `object-src 'none'` korunur — Chromium 141'de blob iframe'deki PDF görüntüleyicinin bu politikayla çalıştığı deneyle doğrulandı; e2e testi gömülü `embed[type="application/pdf"]`'i kontrol eder.
+- Why: Paylaşılabilir kalıcı bağlantı üretmemek.
+- Alternative: Kısa ömürlü imzalı URL (Admin SDK `getSignedUrl`), pdf.js ile çizim.
+- Risk: Üretimde `getBlob` için bucket CORS ayarı gerekir (Faz 14 kontrol listesi). Diğer tarayıcılar Faz 13'te denetlenecek.
+
+**D-036 — Storage'da çapraz servis kuralı kullanılmadı**
+- Decision: "İncelemede/doğrulanmış kullanıcı yükleyemesin" kuralı Storage Rules'ta `firestore.get()` ile değil, sunucuda (`submitVerification` reddi + dosya silme) ve 24 saatlik yetim temizliğiyle uygulanır.
+- Why: Bu ortamdaki Storage emulator'ü en basit çapraz servis kuralını bile reddetti (test edilemedi); üretimde ayrıca IAM izni gerekir ve izin eksikse tüm yüklemeler sessizce reddedilir. Test edilemeyen güvenlik kuralı eklenmedi.
+- Alternative: Çapraz servis kuralı + CI'da doğrulama.
+- Risk: Kullanıcı App Check'ten geçen istemciyle 24 saat boyunca fazladan dosya yükleyebilir (boyut sınırlı). Faz 13'te yeniden değerlendirilecek.
+
+**D-037 — Claim atama sırası ve kendini onarma**
+- Decision: Onayda claim'ler Firestore transaction'ı **başarıyla tamamlandıktan sonra** atanır (geri alma yok); aynı karar tekrar gelirse claim yeniden uygulanır. `v1-syncVerificationClaims` yalnızca sunucunun yazdığı `verificationStatus`'u claim'e yansıtır (doğrulanmışsa verir, değilse `verified`/`universityId`'i kaldırıp refresh token'ları iptal eder). İstemci durum/claim uyuşmazlığını görünce bir kez bu callable'ı çağırıp token'ı yeniler.
+- Why: `code-review`: eşzamanlı iki onayda geri alma mantığı kullanıcıyı claim'siz bırakıyordu (emulator testiyle doğrulandı ve düzeltildi).
+- Alternative: Transaction içinde claim (mümkün değil — Auth transaction'a katılmaz).
+- Risk: Claim atama başarısız olursa durum `verified` ama claim yok olabilir → kullanıcı tarafı onarım veya moderatörün tekrar onayı giderir.
+
+**D-038 — Ret sebepleri ve moderatör kısıtları**
+- Decision: Ret sebebi zorunlu enum (`unreadable`, `not-student-document`, `expired`, `university-mismatch`, `other`) + isteğe bağlı ≤ 200 karakter not ("kişisel veri yazma" uyarısı). Moderatör kendi başvurusunu inceleyemez. Her karar `moderationLogs`'a yazılır.
+- Why: Tutarlı kullanıcı mesajı, çıkar çatışmasının önlenmesi, denetim izi.
+- Risk: Yok.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -469,10 +505,20 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - [x] Testler: birim 118, rules 26, emulator 12, e2e 106 (3 görünüm; kayıt→onboarding→profil→düzenleme→çıkış→giriş, açık yönlendirme, `next` korunması, hata mesajları, axe).
 - [x] Görsel kontrol (360/1440): mobil profil başlığı ve bant yerleşimi düzeltildi.
 - [x] Faz sonu `code-review`: 4 bulgu (seed betiği boşluklu/Türkçe yolda çalışmıyordu, Windows'ta boşluklu yol, kayıt akışında `next` kaybı, çıkış hatasının yutulması) → dördü de düzeltildi, `next` için 2 yeni e2e testi eklendi.
+- [x] Faz 3 CI koşusu (run 36159985886) yeşil.
+
+**Faz 4 (2026-09-25)**
+- [x] `contracts`: doğrulama şemaları, `VERIFICATION_MAX_BYTES` (5 MB), `VERIFICATION_RETENTION_DAYS` (30), ret sebepleri, `hasPdfSignature` (web + Functions ortak), `v1-submitVerification`, `v1-reviewVerification`, `v1-syncVerificationClaims`.
+- [x] Storage Rules: yalnızca sahibi, yalnızca oluşturma (`resource == null`), PDF türü, ≤ 5 MB, dosya adı biçimi; okuma sahibi + moderatör. **Bulgu:** emulator var olan belgenin üzerine yazmaya izin veriyordu → `resource == null` ile kapatıldı.
+- [x] Firestore Rules: `verificationRequests` (sahibi/moderatör okur, kimse yazamaz), `moderationLogs` (yalnızca moderatör okur); bileşik indeks (`status`, `createdAt`).
+- [x] Functions: gönderim, inceleme (idempotent, kendi başvurusunu inceleyememe, denetim kaydı), claim onarımı, günlük temizlik (süresi dolan + yetim dosyalar). Admin SDK ile emulator entegrasyon testleri (16).
+- [x] Web: `/dogrulama` (durum, ret sebebi/notu, yükleme + ilerleme + iptal), `RequireVerified` kilitleri (Keşfet/Topluluklar/Mesajlar), claim eşitleme, profil bantlarında doğrulama bağlantısı, moderatör paneli (`/admin`: kuyruk, PDF önizleme, onay, sebepli ret), `RequireModerator` (403 ekranı).
+- [x] Testler: rules 40, birim 136, emulator 28, e2e 121 (yükleme → onay → kilidin açılması; ret → sebep → yeniden yükleme; moderatör olmayana 403; sahte PDF; axe; CSP).
+- [x] Faz sonu `code-review`: 3 bulgu → (1) eşzamanlı onayda claim kaybı düzeltildi + test; (2) yetim dosyalar düzeltildi (anında silme + 24 saat temizliği) + test; (3) `object-src 'none'` altında PDF önizlemesinin engellenmesi **Chromium'da yeniden üretilemedi** (deneyle), e2e'ye gömülü görüntüleyici kontrolü eklendi.
 
 ## 10. Sonraki adımlar
 
-1. Faz 4: öğrenci belgesi yükleme (Storage Rules + `verificationRequests`), moderatör paneli (`/admin`), onay/red callable'ı (claim + `verificationStatus`), doğrulanmamış kullanıcı kilitleri, saklama/silme politikası taslağı.
+1. Faz 5: veri modelinin kesinleştirilmesi, üniversite izolasyonu kalıpları (kampüs/global görünürlük), tüm koleksiyonlar için alan bazlı Rules + çapraz üniversite testleri, `docs/threat-model.md` STRIDE doldurma.
 2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-04, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31, S-32.
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
@@ -523,3 +569,4 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 1 | Tasarım sistemi, landing, yasal taslaklar, SEO, testler, Lighthouse; D-012…D-019 |
 | 2026-09-25 | 2 | Contracts, Functions iskeleti, default deny Rules + testler, connector katmanı, CSP, CI, SessionStart hook; D-020…D-025 |
 | 2026-09-25 | 3 | Kimlik doğrulama, onboarding, profil, üniversite; Rules + testler; e2e emulator akışı; D-026…D-032 |
+| 2026-09-25 | 4 | Öğrenci doğrulaması, moderatör paneli, claim akışı, saklama/temizlik; D-033…D-038 |

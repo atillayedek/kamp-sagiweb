@@ -2,6 +2,26 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isModerator() {
+      return isSignedIn() && request.auth.token.moderator == true;
+    }
+
+    match /verification/{uid}/{fileName} {
+      allow create: if isSignedIn()
+        && resource == null
+        && request.auth.uid == uid
+        && fileName.matches('^[A-Za-z0-9_-]{8,64}[.]pdf$')
+        && request.resource.contentType == 'application/pdf'
+        && request.resource.size > 0
+        && request.resource.size <= 5 * 1024 * 1024;
+      allow read: if isSignedIn() && (request.auth.uid == uid || isModerator());
+      allow update, delete: if false;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

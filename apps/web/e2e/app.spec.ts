@@ -1,31 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { completeOnboarding, PASSWORD, signUp, uniqueEmail } from "./flows";
 import { collectCspViolations, expectNoA11yViolations } from "./helpers";
-
-const PASSWORD = "gecici-sifre-123";
-
-function uniqueEmail(testInfo: { project: { name: string }; testId: string }) {
-  return `e2e-${testInfo.project.name}-${testInfo.testId}-${Date.now()}@example.com`;
-}
-
-async function signUp(page: Page, email: string) {
-  await page.goto("/kayit");
-  await page.getByLabel("E-posta").fill(email);
-  await page.getByRole("textbox", { name: "Şifre", exact: true }).fill(PASSWORD);
-  await page.getByRole("textbox", { name: "Şifre (tekrar)", exact: true }).fill(PASSWORD);
-  await page.getByRole("button", { name: "Hesap oluştur" }).click();
-  await expect(page).toHaveURL(/\/baslangic$/);
-}
-
-async function completeOnboarding(page: Page) {
-  await page.getByLabel("Üniversiten").selectOption("odtu");
-  await page.getByLabel("Görünen ad").fill("Deniz Yılmaz");
-  await page.getByLabel("Bölüm").fill("Bilgisayar Mühendisliği");
-  await page.getByLabel("İlgi alanların").fill("Basketbol, Satranç");
-  await page.getByLabel("Becerilerin").fill("Python");
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Profilimi oluştur" }).click();
-  await expect(page).toHaveURL(/\/profil$/);
-}
 
 test("oturumsuz kullanıcı korumalı sayfadan girişe yönlendirilir", async ({ page }) => {
   await page.goto("/profil");

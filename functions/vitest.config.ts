@@ -7,6 +7,7 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts"],
+    exclude: ["src/**/*.emulator.test.ts", "node_modules/**"],
     environment: "node",
   },
 });

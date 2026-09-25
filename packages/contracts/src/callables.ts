@@ -6,6 +6,14 @@ import {
   updateProfileRequestSchema,
   updateProfileResponseSchema,
 } from "./schemas/profile";
+import {
+  reviewVerificationRequestSchema,
+  reviewVerificationResponseSchema,
+  submitVerificationRequestSchema,
+  submitVerificationResponseSchema,
+  syncVerificationClaimsRequestSchema,
+  syncVerificationClaimsResponseSchema,
+} from "./schemas/verification";
 
 export const CONTRACT_VERSION = 1;
 
@@ -24,6 +32,21 @@ export const callables = {
     name: "v1-updateProfile",
     request: updateProfileRequestSchema,
     response: updateProfileResponseSchema,
+  },
+  submitVerification: {
+    name: "v1-submitVerification",
+    request: submitVerificationRequestSchema,
+    response: submitVerificationResponseSchema,
+  },
+  reviewVerification: {
+    name: "v1-reviewVerification",
+    request: reviewVerificationRequestSchema,
+    response: reviewVerificationResponseSchema,
+  },
+  syncVerificationClaims: {
+    name: "v1-syncVerificationClaims",
+    request: syncVerificationClaimsRequestSchema,
+    response: syncVerificationClaimsResponseSchema,
   },
 } as const;
 

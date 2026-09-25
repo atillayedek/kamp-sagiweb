@@ -31,14 +31,16 @@ export function buildContentSecurityPolicy(options: CspOptions): string {
       "https://*.cloudfunctions.net",
       ...(isDev || useEmulators ? LOCAL_ORIGINS : []),
     ],
-    "frame-src": appCheck ? RECAPTCHA_FRAMES : ["'none'"],
+    "frame-src": [...(options.nonce ? ["'self'", "blob:"] : []), ...(appCheck ? RECAPTCHA_FRAMES : [])],
     "worker-src": ["'self'", "blob:"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
     "frame-ancestors": ["'none'"],
   };
-  const policy = Object.entries(directives).map(([name, values]) => `${name} ${values.join(" ")}`);
+  const policy = Object.entries(directives).map(
+    ([name, values]) => `${name} ${values.length > 0 ? values.join(" ") : "'none'"}`,
+  );
   if (https) policy.push("upgrade-insecure-requests");
   return policy.join("; ");
 }
