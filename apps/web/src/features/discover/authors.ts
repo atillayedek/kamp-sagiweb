@@ -46,3 +46,18 @@ export async function loadAuthors(
   });
   return result;
 }
+
+/** Sayfalar boyunca yazar görünümlerini önbellekte tutar; her kaynak için yalnızca bir kez okunur. */
+export class AuthorCache {
+  private known: ReadonlyMap<string, AuthorView> = new Map();
+
+  constructor(
+    private readonly documents: DocumentSource,
+    private readonly viewerUniversityId: string,
+  ) {}
+
+  async resolve(refs: AuthorRef[]): Promise<ReadonlyMap<string, AuthorView>> {
+    this.known = await loadAuthors(this.documents, refs, this.viewerUniversityId, this.known);
+    return this.known;
+  }
+}

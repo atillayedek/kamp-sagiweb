@@ -9,9 +9,12 @@ function rules(file: string): string {
 }
 
 export async function createTestEnv(): Promise<RulesTestEnvironment> {
-  return initializeTestEnvironment({
+  const env = await initializeTestEnvironment({
     projectId: PROJECT_ID,
     firestore: { rules: rules("firestore.rules"), host: "127.0.0.1", port: 8080 },
     storage: { rules: rules("storage.rules"), host: "127.0.0.1", port: 9199 },
   });
+  // Dosyalar sırayla aynı emulator'ı kullanır; önceki dosyanın verisi (ör. engel kayıtları) sonrakini etkilemesin.
+  await env.clearFirestore();
+  return env;
 }

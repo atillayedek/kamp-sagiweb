@@ -1,7 +1,7 @@
 # KampüsAğı — Tehdit Modeli
 
 > **TASLAK.** Faz 0'da açıldı; Faz 5'te STRIDE ile dolduruldu; Faz 13'te gözden geçirilecek.
-> Son güncelleme: 2026-09-25 (Faz 8)
+> Son güncelleme: 2026-09-25 (Faz 9)
 
 ## 1. Kapsam
 
@@ -89,6 +89,15 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | T-31 | Engellenen kullanıcının ilana ilgi bildirerek bildirim göndermesi | Rules'ta iki yönlü engel kontrolü (T) | 8 |
 | T-32 | Geri alınan ilginin ilan sahibine sızması | Bildirim transaction içinde ilgi varlığıyla yazılır; ilgi silinince bildirim silinir (T) | 8 |
 | T-33 | İlgi aç/kapa ile bildirim gürültüsü | Tek bildirim kimliği (tekrar oluşturulmaz); hız sınırı Faz 13 (R-12) | 8, 13 |
+| T-34 | İstemcinin beğeni/yorum/üye/katılımcı sayacını değiştirmesi | Sayaçlar oluşturmada 0, sonra istemciye kapalı; yalnızca tetikleyici yazar (T) | 5, 9 |
+| T-35 | Tetikleyicinin tekrar teslimiyle çift sayım; silinip aynı kimlikle yeniden oluşturulan gönderiye eski olayların yansıması | Olay kimliği işareti (`counterEvents`) ile transaction; alt belge üst belgeden eskiyse olay atlanır (T) | 9 |
+| T-36 | Engellenen kullanıcının yorum veya beğeniyle taciz etmesi | Rules'ta gönderi sahibiyle iki yönlü engel kontrolü (T) | 9 |
+| T-37 | Rapor callable'ı üzerinden yol enjeksiyonu veya görülemeyen içeriğin varlığını yoklama | Hedef türü + kimlik biçimi (`[A-Za-z0-9_-]`) sözleşmede; sunucuda görünürlük kontrolü claim'deki üniversiteyle (Rules ile aynı kaynak); yok ve görünmez ayrımsız `not-found` (T) | 9 |
+| T-38 | Rapor spamı / aynı içeriğe toplu rapor | Kullanıcı-hedef başına deterministik kimlik (tek rapor), günlük 20 sınırı (T) | 9 |
+| T-39 | Başkasının gönderisini veya yorumunu silme; silme callable'ıyla görülemeyen içeriğin varlığını yoklama | Callable'da sahiplik kontrolü; yok ve yetkisiz aynı yanıtı (`missing`) alır; istemci silmesi Rules'ta kapalı (T) | 9 |
+| T-40 | Silinen gönderinin altında yetim yorum/beğeni kalması | İki geçişli `recursiveDelete`; gönderi silinince Rules yeni yorum/beğeniyi reddeder (T) | 9 |
+| T-41 | Resmî kulübü taklit eden kulüp açılması | Üniversite başına tekil kulüp adı, günlük kurma sınırı, rapor akışı; resmî doğrulama yok (R-14) | 9, 12 |
+| T-42 | Geçmiş etkinliğe katılım yazarak sayaç şişirme | Rules: katılım yalnızca `startsAt > request.time` (T) | 9 |
 | T-28 | Paylaşılan sayaç belgesinde kilit çakışması / bütçe aşımı | Parçalı sayaç, transaction ile ayırma, gerçek kullanımla mutabakat; sayaç hatası sonucu kaybettirmez (D-047) | 6 |
 
 ## 7. Artık riskler (Faz 5)
@@ -106,5 +115,10 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | R-10 | Eşleşme oluştuktan sonra kurulan engel mevcut eşleşmeyi/bildirimi kaldırmaz | Faz 11'de engelleme arayüzüyle birlikte sunucu tetikleyicisi |
 | R-11 | Bir terim için 500'den fazla ilgili aday varsa belge kimliği sırasına göre ilk 500 taranır | D-055; Faz 13 yük testinde ölçülecek |
 | R-12 | İlgi aç/kapa sayısı sınırsız (her biri bir bildirim oluşturup siler) | Faz 13'te hız sınırı değerlendirilecek |
+| R-13 | Gönderi, yorum ve beğeni istemciden Rules ile yazılır; hız sınırı yok (spam) | Faz 13'te ölçülecek; gerekirse callable + kota veya App Check zorunluluğu |
+| R-14 | Resmî kulüp doğrulaması yok; tekil ad kilidi büyük/küçük harf ve noktalama dışındaki benzerlikleri (ör. harf değişimi) yakalamaz | S-34; rapor + moderasyon (Faz 12) |
+| R-15 | Çözülmüş bir rapordan sonra aynı kullanıcı aynı içeriği yeniden bildiremez (`duplicate`) | Faz 12'de rapor yeniden açma akışı |
+| R-17 | Sayaç olayı 1 saatlik yeniden deneme boyunca yazılamazsa sayaç bir birim sapar (`counter.gaveUp` log'u) | Faz 13'te log alarmı ve yönetici yeniden sayım aracı |
+| R-16 | Çok popüler gönderide sayaç transaction'ları aynı belgede çakışır (belge başına ~1 yazım/sn) | Faz 13 yük testinde ölçülecek; gerekirse parçalı sayaç |
 | R-09 | Günlük bütçe token cinsinden; yedek model adımı rezervasyonu az miktarda aşabilir | D-047; Anthropic tarafında harcama limiti/alarm (Faz 14) |
 

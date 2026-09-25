@@ -1,6 +1,6 @@
 # KampüsAğı Web — Proje Hedefleri
 
-> Durum: **Faz 0–8 tamamlandı; Faz 9 sürüyor** · Son güncelleme: 2026-09-25
+> Durum: **Faz 0–9 tamamlandı; Faz 10 sürüyor** · Son güncelleme: 2026-09-25
 > Bu dosyadaki "ÖNERİ" etiketli her şey kesin karar değildir. "BELİRSİZ / KARAR BEKLİYOR" maddeleri §11'de listelidir; kararlar `memory-bank/Memory_Bank.md` içinde kayıt altına alınır.
 
 ---
@@ -131,13 +131,13 @@ Kaynaktaki taslak ağırlıklar:
 | `needs/{needId}/matches/{uid}` | score, breakdown{…}, reasons[], status | **S** (kullanıcı yalnızca izinli alan, ör. `dismissed`) |
 | `posts/{id}` | authorUid, universityId \| null, text, likeCount, commentCount | içerik K; sayaçlar **S** |
 | `posts/{id}/comments/{cid}`, `posts/{id}/likes/{uid}` | … | K (sayaç **S**) |
-| `clubs/{id}`, `clubs/{id}/members/{uid}` | … | K/S |
-| `events/{id}`, `events/{id}/attendees/{uid}` | … | K/S |
+| `clubs/{id}`, `clubs/{id}/members/{uid}` | … | kulüp: oluşturma Function (`v1-createClub`); üyelik K; sayaç **S** |
+| `events/{id}`, `events/{id}/attendees/{uid}` | … | etkinlik: oluşturma Function (`v1-createEvent`); katılım K; sayaç **S** |
 | `conversations/{id}` | participants[], lastMessage, unreadCounts | oluşturma Function |
 | `conversations/{id}/messages/{mid}` | senderUid, text, createdAt | K (katılımcı + engelleme kontrolü) |
 | `notifications/{uid}/items/{nid}` | type, payload, read | oluşturma **S**; `read` K |
 | `blocks/{uid}/blocked/{targetUid}` | createdAt | K |
-| `reports/{id}` | reporterUid, target, reason | oluşturma K; işleme **S** |
+| `reports/{id}` | reporterUid, target, reason, snapshot | oluşturma Function (`v1-reportContent`); işleme **S** (Faz 12) |
 | `moderationLogs/{id}` | action, actorUid, targetRef | **S** |
 | `config/matching` | weights, thresholds | **S** (istemci okuyamaz) |
 | `dataExports/{uid}/…` | dışa aktarım işleri | **S** |
@@ -181,6 +181,8 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-31 | Alan adı | BELİRSİZ | `NEXT_PUBLIC_SITE_URL` verilene kadar indeksleme kapalı | Faz 14 |
 | S-32 | E-posta doğrulaması zorunlu mu? | BELİRSİZ | Zorunlu değil; bilgilendirme bandı | Faz 4 |
 | S-33 | Canlı Claude değerlendirmesi ve effort ayarı | BELİRSİZ | Gerçek maliyet olduğu için kullanıcı onayıyla; o zamana kadar API varsayılanları (D-052) | Faz 13 |
+| S-34 | Kulüp ve etkinliği kim oluşturur; resmî kulüp doğrulaması, kulüp yöneticileri, kulübe bağlı etkinlik | GEÇİCİ UYGULANDI | Doğrulanmış her öğrenci callable ile (günlük 2 kulüp / 5 etkinlik); üniversite başına tekil kulüp adı; resmî rozet ve kulüp yönetimi yok (D-073) | Faz 9 / 12 |
+| S-35 | Rapor ve moderasyon verisinin (içerik kopyası dahil) saklama süresi | BELİRSİZ | ÖNERİ: karardan sonra 1 yıl; hukuk onayı (S-16) | Faz 12 |
 
 ## 12. Başarı kriterleri
 

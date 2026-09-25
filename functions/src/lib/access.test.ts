@@ -1,7 +1,7 @@
 import { pingRequestSchema } from "@kampusagi/contracts";
 import { HttpsError } from "firebase-functions/v2/https";
 import { describe, expect, it } from "vitest";
-import { parseRequest, resolveCaller } from "./access";
+import { parseRequest, resolveCaller, verifiedActor } from "./access";
 
 function thrown(fn: () => unknown): HttpsError {
   try {
@@ -65,5 +65,13 @@ describe("parseRequest", () => {
 
   it("geçerli girdiyi döndürür", () => {
     expect(parseRequest(pingRequestSchema, {})).toEqual({});
+  });
+});
+
+describe("verifiedActor", () => {
+  it("claim'deki üniversiteyi döndürür, eksikse reddeder", () => {
+    expect(verifiedActor({ uid: "u1", claims: { verified: true, universityId: "odtu" } })).toEqual({ uid: "u1", universityId: "odtu" });
+    expect(() => verifiedActor({ uid: "u1", claims: { verified: true } })).toThrow(HttpsError);
+    expect(() => verifiedActor({ uid: "u1", claims: { universityId: "odtu" } })).toThrow(HttpsError);
   });
 });

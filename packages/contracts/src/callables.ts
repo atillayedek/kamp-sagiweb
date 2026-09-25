@@ -1,5 +1,16 @@
 import type { z } from "zod";
 import {
+  createClubRequestSchema,
+  createClubResponseSchema,
+  createEventRequestSchema,
+  createEventResponseSchema,
+  deleteCommentRequestSchema,
+  deletePostRequestSchema,
+  deleteResponseSchema,
+  reportContentRequestSchema,
+  reportContentResponseSchema,
+} from "./schemas/community";
+import {
   parseNeedRequestSchema,
   parseNeedResponseSchema,
   publishNeedRequestSchema,
@@ -64,6 +75,31 @@ export const callables = {
     name: "v1-publishNeed",
     request: publishNeedRequestSchema,
     response: publishNeedResponseSchema,
+  },
+  createClub: {
+    name: "v1-createClub",
+    request: createClubRequestSchema,
+    response: createClubResponseSchema,
+  },
+  createEvent: {
+    name: "v1-createEvent",
+    request: createEventRequestSchema,
+    response: createEventResponseSchema,
+  },
+  deletePost: {
+    name: "v1-deletePost",
+    request: deletePostRequestSchema,
+    response: deleteResponseSchema,
+  },
+  deleteComment: {
+    name: "v1-deleteComment",
+    request: deleteCommentRequestSchema,
+    response: deleteResponseSchema,
+  },
+  reportContent: {
+    name: "v1-reportContent",
+    request: reportContentRequestSchema,
+    response: reportContentResponseSchema,
   },
 } as const;
 

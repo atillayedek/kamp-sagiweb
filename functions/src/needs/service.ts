@@ -11,9 +11,11 @@ import {
   type Visibility,
 } from "@kampusagi/contracts";
 import { logger } from "firebase-functions";
-import { FieldValue, Timestamp, type DocumentReference, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, Timestamp, type Firestore } from "firebase-admin/firestore";
 import type { ExtractionFailure, NeedExtraction, NeedExtractor, TokenUsage } from "../ai/types";
 import { appError } from "../lib/errors";
+import { requireVerifiedProfile } from "../lib/profile";
+import { rateLimitExpiry } from "../lib/rate-limit";
 import { reserveTokens, settleTokens } from "./budget";
 import { manualDraft, normalizeExtraction } from "./normalize";
 import { cleanLine, cleanNeedText, maskPii, truncateText } from "./text";
@@ -35,7 +37,6 @@ export type NeedDeps = {
 
 const HOUR_MS = 60 * 60 * 1000;
 const STALE_PENDING_MS = (callableTimeoutSeconds("parseNeed") + 10) * 1000;
-const RATE_LIMIT_TTL_MS = 48 * HOUR_MS;
 const RETRY_WINDOW_MS = 30_000;
 const UNCERTAIN_BILLING = new Set<ExtractionFailure>(["timeout", "unavailable"]);
 
@@ -75,24 +76,8 @@ function responseFrom(draftId: string, draft: Draft): ParseNeedResponse {
   };
 }
 
-async function requireVerifiedProfile(
-  firestore: Firestore,
-  uid: string,
-  read: (ref: DocumentReference) => Promise<FirebaseFirestore.DocumentSnapshot>,
-) {
-  const profile = await read(firestore.doc(`users/${uid}`));
-  if (!profile.exists || profile.get("verificationStatus") !== "verified") {
-    throw appError("not-verified", "Bu işlem için öğrenci doğrulamanın tamamlanması gerekiyor.");
-  }
-  return profile.get("universityId") as string;
-}
-
 function userLimitRef(firestore: Firestore, uid: string, now: Date) {
   return firestore.doc(`rateLimits/needs_${uid}_${zonedDayKey(now)}`);
-}
-
-function limitExpiry(now: Date) {
-  return Timestamp.fromMillis(now.getTime() + RATE_LIMIT_TTL_MS);
 }
 
 function reusable(draft: Draft, now: Date): boolean {
@@ -159,7 +144,7 @@ async function reserveDraft(
       {
         drafts: FieldValue.increment(existing.exists ? 0 : 1),
         aiParses: FieldValue.increment(reservation.mode === "ai" ? 1 : 0),
-        expiresAt: limitExpiry(now),
+        expiresAt: rateLimitExpiry(now),
       },
       { merge: true },
     );
@@ -320,14 +305,14 @@ export async function publishNeed(
       updatedAt: stamp,
     });
     transaction.update(draftRef, { publishedNeedId: needRef.id, updatedAt: stamp });
-    transaction.set(usageRef, { publishes: FieldValue.increment(1), expiresAt: limitExpiry(now) }, { merge: true });
+    transaction.set(usageRef, { publishes: FieldValue.increment(1), expiresAt: rateLimitExpiry(now) }, { merge: true });
     return { needId: needRef.id };
   });
 }
 
 export async function purgeExpired(
   firestore: Firestore,
-  collection: "needDrafts" | "rateLimits",
+  collection: "needDrafts" | "rateLimits" | "counterEvents",
   now: Date,
   batchSize = 300,
   maxBatches = 50,

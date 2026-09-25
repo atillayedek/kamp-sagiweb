@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Wordmark } from "@/components/site/Logo";
+import { ReportQueue } from "@/features/admin/ReportQueue";
 import { VerificationQueue } from "@/features/admin/VerificationQueue";
 import { RequireModerator } from "@/features/app/guards";
 
@@ -21,9 +22,10 @@ export default function AdminPage() {
               </Link>
             </div>
           </header>
-          <main id="icerik" className="mx-auto max-w-4xl space-y-6 px-4 py-8">
+          <main id="icerik" className="mx-auto max-w-4xl space-y-10 px-4 py-8">
             <h1 className="text-2xl font-bold tracking-tight">Moderatör paneli</h1>
             <VerificationQueue moderatorUid={session.user.uid} />
+            <ReportQueue />
           </main>
         </div>
       )}

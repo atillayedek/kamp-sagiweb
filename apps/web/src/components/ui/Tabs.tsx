@@ -16,13 +16,21 @@ type TabsProps = {
   label: string;
   defaultTabId?: string;
   lazy?: boolean;
+  /** `lazy` ile: bir kez açılan panel gizlense de bağlı kalır (durum ve okumalar korunur). */
+  keepMounted?: boolean;
   className?: string;
 };
 
-export function Tabs({ items, label, defaultTabId, lazy = false, className }: TabsProps) {
+export function Tabs({ items, label, defaultTabId, lazy = false, keepMounted = false, className }: TabsProps) {
   const baseId = useId();
-  const [requestedId, setActiveId] = useState(defaultTabId);
+  const [requestedId, setRequestedId] = useState(defaultTabId);
+  const [visited, setVisited] = useState<ReadonlySet<string>>(new Set());
   const activeId = items.some((item) => item.id === requestedId) ? requestedId : items[0]?.id;
+
+  function setActiveId(id: string) {
+    setRequestedId(id);
+    if (keepMounted && activeId) setVisited((current) => new Set(current).add(activeId).add(id));
+  }
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   function focusTab(index: number) {
@@ -86,7 +94,7 @@ export function Tabs({ items, label, defaultTabId, lazy = false, className }: Ta
           tabIndex={0}
           className="mt-4 rounded-card"
         >
-          {(!lazy || item.id === activeId) && item.content}
+          {(!lazy || item.id === activeId || visited.has(item.id)) && item.content}
         </div>
       ))}
     </div>

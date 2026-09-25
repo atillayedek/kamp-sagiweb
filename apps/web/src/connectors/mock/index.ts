@@ -19,6 +19,7 @@ import type {
   FunctionsConnector,
   PageOptions,
   QueryOptions,
+  QueryValue,
   Session,
   StorageConnector,
   UploadOptions,
@@ -162,7 +163,11 @@ export class InMemoryDocumentSource implements DocumentSource {
   }
 }
 
-function compare(actual: unknown, operator: string, expected: string | number | boolean): boolean {
+function compare(actual: unknown, operator: string, expected: QueryValue): boolean {
+  if (expected instanceof Date) {
+    if (typeof actual !== "string") return false;
+    return compare(Date.parse(actual), operator, expected.getTime());
+  }
   if (operator === "==") return actual === expected;
   if (typeof actual !== typeof expected) return false;
   const a = actual as string | number;
@@ -206,8 +211,16 @@ function resolveFields(fields: Record<string, FieldValue>) {
 
 export class InMemoryDocumentWriter implements DocumentWriter {
   readonly writes: Array<{ kind: "set" | "update" | "delete"; path: string; fields?: Record<string, FieldValue> }> = [];
+  private sequence = 0;
 
   constructor(private readonly documents: InMemoryDocumentSource) {}
+
+  async createDocument(collectionPath: string, fields: Record<string, FieldValue>) {
+    this.sequence += 1;
+    const id = `auto-${this.sequence}`;
+    await this.setDocument(`${collectionPath}/${id}`, fields);
+    return id;
+  }
 
   async setDocument(path: string, fields: Record<string, FieldValue>) {
     this.writes.push({ kind: "set", path, fields });
@@ -231,7 +244,12 @@ const unsupported = async () => {
   throw new Error("Özel bir DocumentSource verildiğinde writer da verilmelidir.");
 };
 
-const unsupportedWriter: DocumentWriter = { setDocument: unsupported, updateFields: unsupported, deleteDocument: unsupported };
+const unsupportedWriter: DocumentWriter = {
+  createDocument: unsupported,
+  setDocument: unsupported,
+  updateFields: unsupported,
+  deleteDocument: unsupported,
+};
 
 export function createMockConnectors(overrides: Partial<Connectors> = {}): Connectors {
   const documents = overrides.documents ?? new InMemoryDocumentSource();

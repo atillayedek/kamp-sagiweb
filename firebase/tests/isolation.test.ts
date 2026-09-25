@@ -42,7 +42,13 @@ beforeAll(async () => {
     await setDoc(doc(db, "posts/genel"), { authorUid: "ituC", universityId: "itu", visibility: "global", text: "Herkese", likeCount: 0, commentCount: 0 });
     await setDoc(doc(db, "posts/kampus/comments/y1"), { authorUid: "odtuB", text: "Selam" });
     await setDoc(doc(db, "clubs/satranc"), { name: "Satranç", universityId: "odtu", visibility: "campus", memberCount: 0 });
-    await setDoc(doc(db, "events/turnuva"), { title: "Turnuva", universityId: "odtu", visibility: "campus", attendeeCount: 0 });
+    await setDoc(doc(db, "events/turnuva"), {
+      title: "Turnuva",
+      universityId: "odtu",
+      visibility: "campus",
+      attendeeCount: 0,
+      startsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
   });
 });
 
@@ -210,12 +216,12 @@ describe("posts — görünürlük, sayaçlar ve kimlik", () => {
 describe("posts/comments ve likes", () => {
   it("gönderiyi göremeyen yorumları da göremez ve yorum yapamaz", async () => {
     await assertFails(getDoc(doc(a.ituC, "posts/kampus/comments/y1")));
-    await assertFails(setDoc(doc(a.ituC, "posts/kampus/comments/y2"), { authorUid: "ituC", text: "Selam", createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(a.ituC, "posts/kampus/comments/y2"), { authorUid: "ituC", authorUniversityId: "itu", text: "Selam", createdAt: serverTimestamp() }));
   });
 
   it("aynı üniversiteden öğrenci yorum yapar, başkası adına yapamaz", async () => {
-    await assertSucceeds(setDoc(doc(a.odtuB, "posts/kampus/comments/y3"), { authorUid: "odtuB", text: "Katılıyorum", createdAt: serverTimestamp() }));
-    await assertFails(setDoc(doc(a.odtuB, "posts/kampus/comments/y4"), { authorUid: "odtuA", text: "Taklit", createdAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(a.odtuB, "posts/kampus/comments/y3"), { authorUid: "odtuB", authorUniversityId: "odtu", text: "Katılıyorum", createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(a.odtuB, "posts/kampus/comments/y4"), { authorUid: "odtuA", authorUniversityId: "odtu", text: "Taklit", createdAt: serverTimestamp() }));
   });
 
   it("yorum listesi gönderiyi göremeyene kapalı, yorum değiştirilemez", async () => {
@@ -224,8 +230,15 @@ describe("posts/comments ve likes", () => {
     await assertFails(updateDoc(doc(a.odtuB, "posts/kampus/comments/y1"), { text: "Değişti", editedAt: serverTimestamp() }));
   });
 
+  it("yorumda yazarın üniversitesi zorunlu ve kendi üniversitesi olmalı", async () => {
+    await assertFails(setDoc(doc(a.odtuB, "posts/kampus/comments/y6"), { authorUid: "odtuB", text: "Eksik", createdAt: serverTimestamp() }));
+    await assertFails(
+      setDoc(doc(a.odtuB, "posts/kampus/comments/y7"), { authorUid: "odtuB", authorUniversityId: "itu", text: "Sahte", createdAt: serverTimestamp() }),
+    );
+  });
+
   it("genel gönderiye başka üniversiteden yorum yapılabilir", async () => {
-    await assertSucceeds(setDoc(doc(a.odtuA, "posts/genel/comments/y5"), { authorUid: "odtuA", text: "Güzel", createdAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(a.odtuA, "posts/genel/comments/y5"), { authorUid: "odtuA", authorUniversityId: "odtu", text: "Güzel", createdAt: serverTimestamp() }));
   });
 
   it("beğeni yalnızca kendi kimliğiyle ve görülebilen gönderiye verilir", async () => {

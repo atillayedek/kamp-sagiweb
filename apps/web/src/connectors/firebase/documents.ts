@@ -1,4 +1,5 @@
 import {
+  addDoc,
   collection,
   collectionGroup,
   deleteDoc,
@@ -152,6 +153,14 @@ export class FirebaseDocumentWriter implements DocumentWriter {
   private async attempt(operation: () => Promise<void>) {
     try {
       await operation();
+    } catch (error) {
+      throw toAppError(error);
+    }
+  }
+
+  async createDocument(collectionPath: string, fields: Record<string, FieldValue>) {
+    try {
+      return (await addDoc(collection(this.firestore, collectionPath), toFirestore(fields))).id;
     } catch (error) {
       throw toAppError(error);
     }

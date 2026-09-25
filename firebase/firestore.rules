@@ -177,8 +177,11 @@ service cloud.firestore {
       match /comments/{commentId} {
         allow read: if canSee(post(postId));
         allow create: if canSee(post(postId))
-          && incoming().keys().hasOnly(['authorUid', 'text', 'createdAt'])
+          && !blocked(post(postId).authorUid, uid())
+          && !blocked(uid(), post(postId).authorUid)
+          && incoming().keys().hasOnly(['authorUid', 'authorUniversityId', 'text', 'createdAt'])
           && incoming().authorUid == uid()
+          && incoming().authorUniversityId == myUniversity()
           && isText(incoming().text, 1, 500)
           && isNow(incoming().createdAt);
         allow update, delete: if false;
@@ -188,6 +191,8 @@ service cloud.firestore {
         allow read: if canSee(post(postId));
         allow create: if likerUid == uid()
           && canSee(post(postId))
+          && !blocked(post(postId).authorUid, uid())
+          && !blocked(uid(), post(postId).authorUid)
           && incoming().keys().hasOnly(['createdAt'])
           && isNow(incoming().createdAt);
         allow delete: if isVerified() && likerUid == uid();
@@ -218,6 +223,7 @@ service cloud.firestore {
         allow read: if canSee(event(eventId));
         allow create: if attendeeUid == uid()
           && canSee(event(eventId))
+          && event(eventId).startsAt > request.time
           && incoming().keys().hasOnly(['joinedAt'])
           && isNow(incoming().joinedAt);
         allow delete: if isVerified() && attendeeUid == uid();

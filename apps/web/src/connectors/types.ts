@@ -34,8 +34,10 @@ export interface FunctionsConnector {
 
 export type ListedDocument<T> = { id: string; data: T };
 
+export type QueryValue = string | number | boolean | Date;
+
 export type QueryOptions = {
-  where?: Array<[field: string, operator: "==" | "<" | "<=" | ">" | ">=", value: string | number | boolean]>;
+  where?: Array<[field: string, operator: "==" | "<" | "<=" | ">" | ">=", value: QueryValue]>;
   orderBy?: [field: string, direction: "asc" | "desc"];
   limit?: number;
 };
@@ -75,6 +77,7 @@ export const serverTime = Object.freeze({ kind: "server-time" as const });
 export type FieldValue = string | number | boolean | null | typeof serverTime;
 
 export interface DocumentWriter {
+  createDocument(collectionPath: string, fields: Record<string, FieldValue>): Promise<string>;
   setDocument(path: string, fields: Record<string, FieldValue>): Promise<void>;
   updateFields(path: string, fields: Record<string, FieldValue>): Promise<void>;
   deleteDocument(path: string): Promise<void>;

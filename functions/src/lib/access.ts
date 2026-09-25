@@ -33,3 +33,11 @@ export function parseRequest<S extends z.ZodType>(schema: S, data: unknown): z.o
   if (!result.success) throw appError("invalid-argument", "İstek geçersiz.");
   return result.data;
 }
+
+/** `verified` erişimli callable'larda çağıranın claim'deki üniversitesiyle birlikte kimliği. */
+export function verifiedActor(caller: Caller): { uid: string; universityId: string } {
+  if (caller.claims.verified !== true || !caller.claims.universityId) {
+    throw appError("not-verified", "Bu işlem için öğrenci doğrulamanın tamamlanması gerekiyor.");
+  }
+  return { uid: caller.uid, universityId: caller.claims.universityId };
+}

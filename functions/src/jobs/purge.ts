@@ -16,12 +16,20 @@ export const purgeVerificationFiles = onSchedule(
   },
 );
 
+// Üretimde asıl temizlik Firestore TTL ilkeleriyle yapılır (Faz 14); bu iş emniyet ağıdır.
+const PURGE_CAP = 300 * 50;
+
 export const purgeExpiredRecords = onSchedule(
-  { schedule: "every day 04:00", timeZone: "Europe/Istanbul", region: FUNCTIONS_REGION },
+  { schedule: "every day 04:00", timeZone: "Europe/Istanbul", region: FUNCTIONS_REGION, timeoutSeconds: 540 },
   async () => {
     const now = new Date();
-    const drafts = await purgeExpired(db(), "needDrafts", now);
-    const rateLimits = await purgeExpired(db(), "rateLimits", now);
-    logger.info("records.purge", { drafts, rateLimits });
+    const counts = {
+      drafts: await purgeExpired(db(), "needDrafts", now),
+      rateLimits: await purgeExpired(db(), "rateLimits", now),
+      counterEvents: await purgeExpired(db(), "counterEvents", now),
+    };
+    logger.info("records.purge", counts);
+    const capped = Object.entries(counts).filter(([, total]) => total >= PURGE_CAP).map(([name]) => name);
+    if (capped.length > 0) logger.warn("records.purgeCapped", { collections: capped, cap: PURGE_CAP });
   },
 );

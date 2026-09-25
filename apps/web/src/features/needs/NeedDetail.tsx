@@ -12,6 +12,7 @@ import { NeedCard } from "@/components/need/NeedCard";
 import { useSignedIn } from "@/features/app/guards";
 import { useDocument, type DocumentState } from "@/features/data/useDocument";
 import { OTHER_CAMPUS_AUTHOR, UNKNOWN_AUTHOR, type AuthorView } from "@/features/discover/authors";
+import { ReportButton } from "@/features/community/ReportButton";
 import { toCardData, useNeedActions } from "@/features/discover/FeedNeedCard";
 import { NeedMarksProvider, useNeedMarks } from "@/features/discover/marks";
 import { CloseNeed } from "./CloseNeed";
@@ -107,6 +108,11 @@ function NeedDetailView({
           {visibilityLabels[data.visibility].title}
         </Badge>
         {own && <Badge tone="accent">Senin ilanın</Badge>}
+        {!own && (
+          <span className="ml-auto">
+            <ReportButton compact target={{ type: "need", needId }} subject={`${data.parsed.title} ilanı`} />
+          </span>
+        )}
       </div>
       <NeedCard headingLevel="h2" need={toCardData(data, authorView)} actions={actions} />
       {own && <CloseNeed needId={needId} closed={data.status === "closed"} />}

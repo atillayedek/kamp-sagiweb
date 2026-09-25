@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 9** (Faz 0–8 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 10** (Faz 0–9 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -22,7 +22,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | Faz 6 | **Tamamlandı**: ihtiyaç yazma → Claude ile yapılandırma (yalnızca sunucu) → önizleme/düzenleme → yayınlama; PII maskeleme, kota + günlük token tavanı, idempotent taslaklar, ilan detay sayfası |
 | Faz 7 | **Tamamlandı**: sunucu tarafı eşleştirme motoru (tetikleyici, ilgi/beceri tabanlı aday havuzu, normalize skor, Türkçe gerekçeler, bildirim), ilan sahibine eşleşme listesi + gizleme; CI yeniden yeşil |
 | Faz 8 | **Tamamlandı**: Keşfet — kampüs/genel/kaydedilen akışları (imleçli sayfalama), "Sana uygun ilanlar", "İlgileniyorum"/"Kaydet" (Rules + bildirim), ilan kapatma, ilgilenenler listesi |
-| Faz 9 | Başlıyor (Topluluklar: gönderi/yorum/beğeni, kulüp/etkinlik, rapor ve silme callable'ları) |
+| Faz 9 | **Tamamlandı**: Topluluklar — gönderi/yorum/beğeni (sunucu sayaçları), kulüp ve etkinlik (oluştur, katıl/ayrıl), içerik bildirimi → moderatör kuyruğu, gönderi/yorum silme |
+| Faz 10 | Başlıyor (Mesajlar ve bildirim merkezi) |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
 | Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
@@ -644,6 +645,77 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Why: Tam koşuda 66 tohum ilan tetikleyici kuyruğunu doldurup öneri testini zaman aşımına düşürdü (yerel tam koşuda görüldü).
 - Risk: Yok.
 
+**D-072 — Topluluk sayaçları**
+- Decision:
+  - `likeCount`, `commentCount`, `memberCount`, `attendeeCount` yalnızca `onDocumentWritten` tetikleyicileriyle yazılır (`triggers-count*`).
+  - Her olay transaction içinde `counterEvents/{sha256(eventId)}` işaretiyle bir kez uygulanır (tekrar teslim çift saymaz). İşaret 6 saat yaşar.
+  - Alt belge üst belgeden eskiyse olay atlanır: aynı kimlikle silinip yeniden oluşturulan gönderiye eski beğenilerin silinmesi yansımaz.
+  - Olay 1 saat boyunca yeniden denenir; son denemede de yazılamazsa `counter.gaveUp` log'u bırakılır (R-17).
+  - İstemci kendi beğeni/üyelik değişikliğini yerel olarak yansıtır (`adjustCount`); gönderi detayı belgeyi bir kez okur (canlı dinleyici yerel düzeltmeyle çift sayardı).
+- Why: Sayaç manipülasyonunu imkânsız kılmak (Bitti Kriteri). `code-review`: mutlak değerle yeniden sayma, uçuştaki olaylarla kalıcı sapma üretiyordu.
+- Alternative: Her olayda `count()` ile yeniden sayım (yarış koşulunda eski değer yazılabilir); parçalı sayaç (şimdilik gereksiz, R-16).
+- Risk: Popüler gönderide transaction çakışması (R-16); son denemede kalıcı hata (R-17).
+
+**D-073 — Kulüp ve etkinlik oluşturma (S-34 geçici)**
+- Decision:
+  - Doğrulanmış her öğrenci callable ile oluşturur (`v1-createClub`, `v1-createEvent`); günlük 2 kulüp / 5 etkinlik (params).
+  - Kimlik istemcinin ürettiği UUID'dir: aynı alanlarla tekrar çağrı idempotenttir (zaman sınırı geçmiş olsa da); farklı içerik `already-exists`.
+  - Kulüp adı üniversite başına tekildir (`clubNames` kilidi; büyük/küçük harf, boşluk ve sık ayraçlar yok sayılır; `C++` ≠ `C#`). Ad en az iki harf/rakam içermeli.
+  - Kurucu otomatik üye, düzenleyen otomatik katılımcı olur. Alanlar `founderUid` / `organizerUid`.
+  - Etkinlik en erken 15 dk, en geç 180 gün sonra başlar; en fazla 72 saat sürer. Katılım yalnızca başlamadan önce (Rules).
+  - Kulübe bağlı etkinlik, kulüp yöneticileri ve resmî kulüp rozeti yok.
+- Why: Master prompt kulüp/etkinlik oluşturmayı tanımlamıyor; en basit güvenli varsayılan. Taklit ve spam için ad kilidi + günlük sınır + rapor akışı.
+- Alternative: Yalnızca moderatörün kulüp açması; kulüp başvurusu ve onay akışı.
+- Risk: Resmî kulüp taklidi (T-41, R-14). Kullanıcı kararı bekliyor (S-34).
+
+**D-074 — İçerik bildirimi (rapor) ve moderatör kuyruğu**
+- Decision:
+  - `v1-reportContent`: hedef türleri `post`, `comment`, `club`, `event`, `need`; sebep enum'u (8 değer); `other` için açıklama zorunlu.
+  - Sunucu hedefi okur ve görünürlüğü claim'deki üniversiteyle kontrol eder. Yok ve görünmez ayrımsız `not-found` döner. Kendi içeriği bildirilemez.
+  - Rapor kimliği `sha256(reporterUid:targetKey)`, `targetKey = sha256(targetPath@createTime)`: kullanıcı-hedef başına tek rapor; tekrar `duplicate` (kota harcanmaz); aynı yolda yeniden oluşturulan içerik yeni hedeftir.
+  - Anlık görüntü (`snapshot{title, text, visibility, createdAt}`) maskesiz saklanır (kişisel bilgi bildirimleri incelenebilsin). Bildirenin açıklaması maskelenir. Yorumda `targetUniversityId` yorumcunun üniversitesidir.
+  - Günlük 20 bildirim. Moderatör paneli açık raporları en eskiden başlayarak listeler (salt okuma; işlem araçları Faz 12).
+- Why: Bitti Kriteri "rapor akışı moderatör kuyruğuna düşüyor"; D-042 (yalnızca callable, hedef doğrulama, anlık görüntü, tekrar engeli). D-040: moderatör içeriği yalnızca rapordaki kopyadan görür.
+- Alternative: Hedef başına tek rapor belgesi + sayaç; moderatöre canlı içerik okuma.
+- Risk: Çözülmüş rapordan sonra yeniden bildirim yok (R-15); saklama süresi belirsiz (S-35).
+
+**D-075 — Gönderi ve yorum silme**
+- Decision: `v1-deletePost` (yalnızca yazar; `recursiveDelete` iki tur: gönderi silinince Rules yeni yorum/beğeniyi reddeder, ilk tur sırasında eklenenler ikinci turda temizlenir) ve `v1-deleteComment` (yorum yazarı veya gönderi sahibi). Erişim "oturum açmış": doğrulaması düşen kullanıcı da kendi içeriğini silebilir (KVKK). Yok ve yetkisiz aynı `missing` yanıtını alır.
+- Why: İstemci alt koleksiyonları silemez; D-041/D-042 silmeyi sunucuya bıraktı. `code-review`: `permission-denied` ile `missing` ayrımı varlık yoklamasına izin veriyordu.
+- Risk: Raporlanmış içerik silinse de rapordaki kopya kalır (bilinçli).
+
+**D-076 — Faz 9 Rules eklemeleri**
+- Decision: Yorum ve beğenide gönderi sahibiyle iki yönlü engel kontrolü. Yorumda `authorUniversityId == claim` (başka kampüsten yorumcunun profili okunmadan etiketlenir). Etkinlik katılımı yalnızca `startsAt > request.time`. Rules test dosyaları temiz Firestore ile başlar (`createTestEnv` içinde `clearFirestore`): önceki dosyanın engel kayıtları sonrakini etkiliyordu.
+- Why: T-36, T-42; D-069 ile tutarlı yazar gösterimi.
+- Risk: Yorum ve beğeni başına 3 belge okuması (R-02).
+
+**D-077 — Topluluklar arayüzü**
+- Decision:
+  - `/topluluklar`: Gönderiler / Kulüpler / Etkinlikler sekmeleri; her birinde Kampüsüm / Tüm üniversiteler. Açılan sekmeler bağlı kalır (`Tabs keepMounted`): sekme değişiminde yeniden okuma yok. `?sekme=` ile doğrudan sekme.
+  - Ortak `PagedList`: imleçli sayfa, kuşak kimliğiyle eski yanıtları yok sayma, yeni sayfada ilk görünür öğeye odak, `trailing` ile bu oturumda eklenen yorum.
+  - `usePresence`: beğeni/üyelik/katılım için kart başına tek okuma, var olan belgeye tekrar yazımı başarı sayma.
+  - Gönderi detayı `/topluluklar/gonderi/[id]`: yorumlar eskiden yeniye; silme sonrası odak bölüm başlığına taşınır.
+  - Formlar `/topluluklar/kulup/yeni`, `/topluluklar/etkinlik/yeni`. "Bildir" diyaloğu (gönderi, yorum, kulüp, etkinlik, ilan detayı).
+  - Bağlamlı düğmeler `aria-label` taşır ("Katıl: Satranç Kulübü"); `sr-only` ek Chrome'da fazladan boşluk üretiyordu.
+- Why: Keşfet kalıplarıyla tutarlılık; `code-review` erişilebilirlik ve okuma maliyeti bulguları.
+- Risk: Sayfa başına en fazla 20 durum okuması. İyimser durum sunucu onayından önce gösterilir; kullanıcı hemen sayfayı yenilerse/kapatırsa yazım kaybolabilir (Firestore çevrimdışı kalıcılığı kapalı). e2e testleri onay bildirimini veya meşgul durumunun bitmesini bekler (tam koşuda yakalandı).
+
+**D-078 — Connector eklemeleri**
+- Decision: `DocumentWriter.createDocument` (otomatik kimlik, `addDoc`); sorgu değeri `Date` (Timestamp alanlarıyla karşılaştırma; mock ISO'yu tarih olarak karşılaştırır); `AuthorCache` (sayfalar boyunca yazar önbelleği); `useDocumentOnce`.
+- Why: Gönderi/yorum oluşturma ve yaklaşan etkinlik sorgusu.
+- Risk: Yok.
+
+**D-079 — Gönderi ve yorum istemciden yazılmaya devam eder**
+- Decision: D-041 korunur: gönderi, yorum ve beğeni Rules ile istemciden yazılır; kulüp, etkinlik ve rapor callable ile.
+- Why: Anlık etkileşim, Rules testli; callable soğuk başlangıcı ve maliyeti.
+- Alternative: Gönderi/yorumu da callable'a taşıyıp günlük kota koymak.
+- Risk: Hız sınırı yok (R-13); Faz 13'te ölçülüp gerekirse callable'a taşınır.
+
+**D-080 — Callable'larda yetki claim'den gelir**
+- Decision: `verified` erişimli yeni callable'lar üniversiteyi claim'den alır (`verifiedActor`); `requireVerifiedActor` profilin hâlâ doğrulanmış olduğunu ve üniversitenin claim ile aynı olduğunu teyit eder, ayrışmada `not-verified`.
+- Why: CLAUDE.md: yetki yalnızca custom claim'den; Rules ile sunucu kararları aynı kaynağa dayanır (`code-review`).
+- Risk: Claim yenilenmemiş kullanıcı yeniden oturum açmalı (R-01).
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -830,14 +902,31 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
   - e2e 151 başarılı + 2 atlanan. Keşfet: akışlar, sekmeler, kaydet/ilgi, kalıcılık, ilgilenenler, kapatma, kapalı ilanı kayıttan çıkarma, 22 ilanla sayfalama, öneriler.
 - [x] Faz sonu `code-review`: 15 bulgunun 15'i düzeltildi (D-064…D-069, erişilebilirlik, KVKK envanteri).
 
+**Faz 9 (2026-09-25)**
+- [x] `contracts`: `community.ts` (gönderi, yorum, kulüp, etkinlik, rapor şemaları; 5 callable; `multilineText`).
+- [x] Rules: yorum/beğenide engel, yorumda `authorUniversityId`, etkinlik katılımında başlangıç kontrolü; `community.test.ts`; test dosyaları arası izolasyon. İndeks: `reports (status, createdAt)`.
+- [x] Functions:
+  - Sayaç tetikleyicileri (D-072).
+  - `v1-createClub`, `v1-createEvent` (D-073), `v1-reportContent` (D-074), `v1-deletePost`, `v1-deleteComment` (D-075).
+  - Ortak yardımcılar: `lib/hash`, `lib/rate-limit`, `requireVerifiedActor` / `verifiedActor` (D-080).
+  - Temizlik işi `counterEvents`'i de siler; tavan uyarısı, 540 sn zaman aşımı.
+- [x] Web: Topluluklar sayfası, gönderi detayı, kulüp/etkinlik formları, "Bildir" diyaloğu, moderatör rapor kuyruğu, ilan detayında "Bildir" (D-077, D-078).
+- [x] Testler:
+  - Birim 281 (contracts 61, functions 106, web 114).
+  - Rules 131.
+  - Emulator 100 (functions 88, web 12). Sayaç tetikleyicisi uçtan uca doğrulandı.
+  - e2e 160 başarılı + 2 atlanan. Topluluklar: gönderi paylaş → beğeni → yorum → sunucu sayacı → başka kampüs göremez → sil; kulüp kur/katıl/ayrıl; etkinlik oluştur/katıl; bildirim → moderatör kuyruğu, tekrar bildirimi.
+- [x] Faz sonu `code-review`: 15 bulgunun 15'i düzeltildi (D-072…D-075, D-077, D-080; odak yönetimi, eşzamanlı yanıtlar, alan hatası ilişkilendirmesi, tekrarlanan yardımcılar).
+
 ## 10. Sonraki adımlar
 
-1. Faz 9: Topluluklar. İçerik:
-   - Gönderi, yorum ve beğeni (Rules hazır; sayaçlar sunucu tetikleyicisiyle).
-   - Kulüp ve etkinlik oluşturma kararı ve listeleri.
-   - Rapor callable'ı: hedef doğrulama, anlık görüntü, tekrar engeli; moderatör kuyruğuna düşer.
-   - Gönderi ve yorum silme callable'ları.
-2. Kullanıcıdan bekleyen kararlar (D-012): S-01, S-04, S-11 (kategori listesi, D-050), S-17 (Firebase bölgesi), S-25, S-30/S-31, S-32, S-33 (canlı Claude değerlendirmesi ve effort taraması — gerçek maliyet).
+1. Faz 10: Mesajlar ve bildirim merkezi. İçerik:
+   - Konuşma başlatma callable'ı (S-14 kuralı: doğrulanmış, engel yok, alıcının `allowFrom` tercihi).
+   - Gerçek zamanlı sohbet (dinleyici), mesaj gönderme (Rules hazır).
+   - Okunmadı sayaçları ve `lastMessage` (sunucu tetikleyicisi).
+   - Bildirim merkezi (sunucu yazar, istemci yalnızca `read`); yorum bildirimi (gönderi sahibine) burada değerlendirilecek.
+   - Web push kararı (S-13).
+2. Kullanıcıdan bekleyen kararlar (D-012): S-01, S-04, S-11 (kategori listesi, D-050), S-17 (Firebase bölgesi), S-25, S-30/S-31, S-32, S-33 (canlı Claude değerlendirmesi ve effort taraması — gerçek maliyet), S-34 (kulüp/etkinlik oluşturma yetkisi), S-35 (rapor saklama süresi).
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
 **Faz 14 kontrol listesine eklenenler (Faz 6)**
@@ -850,6 +939,12 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - Firestore tetikleyicisinin bölgesi veritabanı konumuyla uyumlu olmalı (S-17).
 - Yeni bileşik indeksler deploy edilmeli (`firestore.indexes.json`); emulator indeks zorunluluğu uygulamaz.
 - `config/matching` değişiklikleri için alarm (`matching.configInvalid` logu).
+
+**Faz 14 kontrol listesine eklenenler (Faz 9)**
+- Firestore TTL politikası: `counterEvents.expiresAt` (günlük temizlik işi yalnızca emniyet ağı; tavan aşılırsa `records.purgeCapped` uyarısı).
+- Yeni indeks: `reports (status, createdAt)`.
+- Params: `CLUB_DAILY_CREATES`, `EVENT_DAILY_CREATES`, `REPORT_DAILY_LIMIT`.
+- Log alarmları: `counter.gaveUp`, `records.purgeCapped`.
 
 ## 11. Açık sorular
 
@@ -890,6 +985,8 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | S-31 | Alan adı (kanonik URL, sitemap) | `NEXT_PUBLIC_SITE_URL` ile verilecek; yoksa `http://localhost:3000` ve indeksleme kapalı |
 | S-32 | E-posta doğrulaması zorunlu mu? | Hayır; bilgilendirme bandı gösteriliyor (D-026) |
 | S-33 | Canlı Claude değerlendirmesi / effort ayarı | Yapılmadı (gerçek maliyet); API varsayılanları (D-052) |
+| S-34 | Kulüp/etkinlik oluşturma yetkisi, resmî kulüp | Doğrulanmış her öğrenci, günlük sınırlı; tekil ad (D-073) |
+| S-35 | Rapor/moderasyon verisi saklama süresi | ÖNERİ: karardan sonra 1 yıl; hukuk onayı |
 
 ## 12. Değişiklik günlüğü
 
@@ -906,3 +1003,4 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 6 | CI düzeltmesi (PDF önizleme yeteneği); D-053 |
 | 2026-09-25 | 7 | Eşleştirme motoru, eşleşme görünürlüğü, bildirim, ilan sahibine liste; D-054…D-063 |
 | 2026-09-25 | 8 | Keşfet: akışlar, öneriler, ilgi/kaydet, kapatma, ilgilenenler; D-064…D-071 |
+| 2026-09-25 | 9 | Topluluklar: gönderi/yorum/beğeni + sunucu sayaçları, kulüp/etkinlik, içerik bildirimi → moderatör kuyruğu, silme; D-072…D-080 |

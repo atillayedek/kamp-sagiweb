@@ -128,3 +128,32 @@ describe("InMemoryDocumentWriter oluşturma ve silme", () => {
     expect(documents.peek("kayitlar/u1/ogeler/n1")).toBeUndefined();
   });
 });
+
+describe("InMemoryDocumentWriter otomatik kimlik", () => {
+  it("koleksiyona yeni kimlikle belge ekler", async () => {
+    const documents = new InMemoryDocumentSource();
+    const connectors = createMockConnectors({ documents });
+    const first = await connectors.writer.createDocument("gonderiler", { metin: "a", createdAt: serverTime });
+    const second = await connectors.writer.createDocument("gonderiler", { metin: "b", createdAt: serverTime });
+    expect(first).not.toBe(second);
+    expect(documents.peek(`gonderiler/${second}`)).toMatchObject({ metin: "b" });
+  });
+});
+
+describe("InMemoryDocumentSource tarih filtresi", () => {
+  it("ISO alanı Date değeriyle karşılaştırır", async () => {
+    const documents = new InMemoryDocumentSource(
+      new Map([
+        ["etkinlikler/gecmis", { baslangic: "2026-09-20T10:00:00.000Z" }],
+        ["etkinlikler/gelecek", { baslangic: "2026-10-20T10:00:00.000Z" }],
+      ]),
+    );
+    const schema = z.object({ baslangic: z.string() });
+    const result = await documents.queryCollection(
+      "etkinlikler",
+      { where: [["baslangic", ">=", new Date("2026-09-25T00:00:00Z")]] },
+      schema,
+    );
+    expect(result.map((item) => item.id)).toEqual(["gelecek"]);
+  });
+});
