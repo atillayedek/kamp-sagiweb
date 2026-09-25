@@ -19,7 +19,8 @@
 | `users/{uid}` | `displayName`, `universityId`, `department`, `interests[]`, `skills[]`, `bio`, `verificationStatus` (S), `reputationScore` (S), `createdAt`, `updatedAt` | Tekil okuma: sahibi, moderatör, aynı üniversitedeki doğrulanmış. **Liste sorgusu yalnızca moderatör** (öğrenci rehberi çıkarılamaz) | S (callable) |
 | `userPrivate/{uid}` | `legal{acceptedTermsVersion, acceptedAt}`, `privacy{profileVisibility}`, `messaging{allowFrom}`, `verification{…}`, `createdAt` | Sahibi | S (callable) |
 | `verificationRequests/{requestId}` | `uid`, `universityId`, `storagePath`, `status`, `rejectReason`, `note`, `reviewedBy`, `reviewedAt`, `createdAt`, `purgeAt`, `fileDeletedAt` | Sahibi, moderatör | S |
-| `needs/{needId}` | `authorUid`, `universityId`, `visibility`, `rawText`, `parsed{title, category, tags[], requiredSkills[], participants{min,max}, when{…}, locationHint}`, `status` (`open`/`closed`), `createdAt`, `updatedAt` | Doğrulanmış + (genel veya aynı üniversite) | S (`parseNeed` / ilan callable'ları) |
+| `needs/{needId}` | `authorUid`, `universityId` (yazarın profilinden), `visibility`, `rawText` (**maskelenmiş** metin), `parsed{title, category, tags[], requiredSkills[], participants{min,max}, when{kind, startIso, endIso, rawText}, locationHint}`, `parseStatus` (`parsed`/`failed` — Claude mı elle mi), `edited` (öneri değiştirildi mi), `status` (`open`/`closed`), `createdAt`, `updatedAt`. Belge kimliği = taslak kimliği | Doğrulanmış + (genel veya aynı üniversite) | S (`v1-publishNeed`) |
+| `needDrafts/{draftId}` | `uid`, `textHash`, `maskedText`, `maskedKinds[]`, `status` (`pending`/`parsed`/`failed`), `failReason`, `parsed`, `confidence`, `clarifications[]`, `publishable`, `publishedNeedId`, `model`, `attempts`, `createdAt`, `updatedAt`, `expiresAt` (+24 saat) | **Hiç kimse (istemci)** | S (`v1-parseNeed`, `v1-publishNeed`) |
 | `needs/{needId}/matches/{candidateUid}` | `score` (S), `breakdown{…}` (S), `reasons[]` (S), `weightsVersion` (S), `status` (`suggested`/`dismissed`), `createdAt` | İlan sahibi ve aday (doğrulanmış) | S; ilan sahibi yalnızca `status: "dismissed"` yapabilir |
 | `posts/{postId}` | `authorUid`, `universityId`, `visibility`, `text`, `likeCount` (S), `commentCount` (S), `createdAt` | Doğrulanmış + görünürlük | K oluşturma (sayaçlar 0); **değiştirilemez**; silme: S |
 | `posts/{postId}/comments/{commentId}` | `authorUid`, `text`, `createdAt` | Gönderiyi okuyabilen | K oluşturma; **değiştirilemez**; silme: S |
@@ -34,9 +35,9 @@
 | `blocks/{uid}/blocked/{targetUid}` | `createdAt` | Sahibi | K (kendisi için; kendini engelleyemez) |
 | `reports/{reportId}` | `reporterUid`, `targetType`, `targetPath`, `targetSnapshot` (S), `reason` (enum), `details`, `status`, `createdAt` | Moderatör | **S** — rapor callable'ı (Faz 9) hedefin varlığını ve raporlayanın görebildiğini doğrular, içeriğin anlık görüntüsünü alır, tekrarları engeller |
 | `moderationLogs/{logId}` | `action`, `actorUid`, `targetUid`, `targetRef`, `reason`, `createdAt` | Moderatör | S |
-| `config/{doc}` (ör. `config/matching`) | Ağırlıklar, eşikler, kotalar | **Hiç kimse (istemci)** | S |
+| `config/{doc}` (ör. `config/matching`) | Ağırlıklar, eşikler (kotalar Faz 6'da Firebase params'a taşındı, D-047) | **Hiç kimse (istemci)** | S |
 | `dataExports/{uid}/jobs/{jobId}` | `status`, `storagePath`, `expiresAt`, `createdAt` | Sahibi | S |
-| `rateLimits/{key}` | Sayaçlar | Hiç kimse | S |
+| `rateLimits/{key}` | `needs_{uid}_{gün}`: `drafts`, `aiParses`, `publishes`; `aiTokens_{gün}_{0-9}`: `tokens` (parçalı günlük bütçe); hepsinde `expiresAt` (+48 saat). Gün = Europe/Istanbul | Hiç kimse | S |
 
 ## 3. Taslak modelden sapmalar
 

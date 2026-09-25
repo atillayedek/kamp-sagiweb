@@ -63,16 +63,42 @@ Tüm connector'lar hatayı `AppError`'a çevirir (`apps/web/src/connectors/error
 - Adlandırma: `v<sürüm>-<ad>`. Kırıcı değişiklik yeni sürüm grubu açar (`v2-…`); eski sürüm iOS geçişi tamamlanana kadar yaşar.
 - Sunucu tarafı sarmalayıcı (`functions/src/lib/callable.ts` → `defineCallable`): oturum ve claim kontrolü → Zod ile istek doğrulama → işleyici → yanıtın sözleşmeyle doğrulanması → PII içermeyen log. App Check üretimde her zaman zorunlu, yalnızca emulator'de kapalı.
 
-## 4. Firebase istemcisi ve ortam
+- Zaman aşımı sözleşmede: `callables.<ad>.timeoutSeconds` (yoksa 30 sn). Sunucu bu değeri, web istemcisi bu değer + 10 sn'yi kullanır (`callableTimeoutSeconds`). Tüm callable'ların listesi: `docs/api-contract.md`.
+
+## 4. Sunucu tarafı AI connector'ı (Faz 6)
+
+Claude yalnızca Cloud Functions'tan çağrılır; web paketinde Anthropic SDK'sı yoktur (`pnpm check:bundle`).
+
+| Parça | Dosya | Görev |
+|---|---|---|
+| `NeedExtractor` arayüzü | `functions/src/ai/types.ts` | `extractNeed({ text, now })` → `{ ok: true, output, usage, model }` veya `{ ok: false, reason, usage }` |
+| Anthropic uygulaması | `functions/src/ai/anthropic.ts` | Resmî SDK, `beta.messages.create` + structured outputs + `fallbacks: "default"`; `stop_reason` kontrolü; son metin bloğunun Zod doğrulaması; tipli hata sınıflarıyla eşleme |
+| Sahte uygulama | `functions/src/ai/fake.ts` | Yalnızca emulator'de (`AI_PROVIDER` ≠ `anthropic`); deterministik; `#sahte-hata`, `#sahte-ret` |
+| Prompt | `functions/src/ai/prompt.ts` | Sabit Türkçe sistem istemi; kullanıcı mesajında sunucu tarihi + saat dilimi + `<ilan_metni>` bloğu |
+
+Hata eşleme (`classifyAnthropicError`):
+
+| SDK hatası | `reason` | Kullanıcıya etkisi |
+|---|---|---|
+| `APIConnectionTimeoutError` | `timeout` | Elle doldurma (`failReason: "ai-error"`) |
+| `RateLimitError` | `rate-limited` | Elle doldurma |
+| `AuthenticationError`, `PermissionDeniedError`, `NotFoundError` | `misconfigured` | Elle doldurma + hata logu |
+| `BadRequestError`, `UnprocessableEntityError` | `rejected` | Elle doldurma |
+| Diğer `APIError` (5xx, 529, bağlantı) | `unavailable` | Elle doldurma |
+| `stop_reason: "refusal"` (yedek model de reddetti) | `refusal` | Yayımlanamaz, metne dön |
+| `stop_reason: "max_tokens"` | `truncated` | Elle doldurma |
+| Bozuk JSON / şema dışı | `invalid-output` | 1 kez yeniden deneme, sonra elle doldurma |
+
+## 5. Firebase istemcisi ve ortam
 
 - `createFirebaseClients(options, { emulators })`: uygulama, Auth, Firestore, Functions (bölgeli) ve Storage istemcilerini oluşturur; emulator bağlantısını bir kez kurar.
 - `readFirebaseEnvironment()`: `NEXT_PUBLIC_FIREBASE_*` değişkenlerini okur (ad listesi: `.env.example`). `NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true` iken `demo-kampusagi` projesi ve yerel emulator'ler kullanılır.
 - App Check: `NEXT_PUBLIC_APPCHECK_RECAPTCHA_ENTERPRISE_SITE_KEY` tanımlıysa ve emulator kullanılmıyorsa reCAPTCHA Enterprise sağlayıcısıyla başlatılır (sağlayıcı seçimi ÖNERİ).
 
-## 5. Testler
+## 6. Testler
 
 | Katman | Komut | Kapsam |
 |---|---|---|
-| Birim | `pnpm test` | Hata eşleme, mock connector'lar, sözleşmeler, erişim kontrolü |
+| Birim | `pnpm test` | Hata eşleme, mock connector'lar, sözleşmeler, erişim kontrolü, Anthropic connector'ı (mock'lanmış SDK yanıtları) |
 | Security Rules | `pnpm test:rules` | Default deny (Firestore + Storage), emulator |
 | Entegrasyon | `pnpm test:emulator` | Gerçek Firebase connector'ları → Auth/Firestore/Storage/Functions emulator'leri (`v1-ping`, varsayılan ret → `AppError`) |

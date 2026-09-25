@@ -1,7 +1,7 @@
 # KampüsAğı — Tehdit Modeli
 
 > **TASLAK.** Faz 0'da açıldı; Faz 5'te STRIDE ile dolduruldu; Faz 13'te gözden geçirilecek.
-> Son güncelleme: 2026-09-25
+> Son güncelleme: 2026-09-25 (Faz 6)
 
 ## 1. Kapsam
 
@@ -45,7 +45,7 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | Auth / claim'ler | Firebase Auth; claim'ler yalnızca Admin SDK (T) | İstemci claim yazamaz; tür bozuk claim yok sayılır (T) | Claim değişiklikleri `moderationLogs`'ta (doğrulama) | Claim'lerde PII yok (yalnızca `universityId`) | Token yenileme istemcide sınırlı (bir kez) | `moderator`/`verified` yalnızca sunucu (T); `syncVerificationClaims` yalnızca sunucu durumunu yansıtır |
 | Firestore Rules | `*Uid == request.auth.uid` zorunlu (T) | Alan listeleri `hasOnly`; sayaç/skor istemciye kapalı (T) | `createdAt == request.time` (T) | Default deny; kampüs/genel görünürlük; `userPrivate` yalnızca sahibi (T) | Liste sorguları görünürlük filtresi olmadan reddedilir (T) | Moderatör claim'i içerik okuma yetkisi vermez; moderasyon sunucudan (D-040) |
 | Storage (belge) | Yol `verification/{uid}` = token uid (T) | Üzerine yazma/silme yok (T); sunucuda imza kontrolü (T) | Başvuru kaydı + denetim kaydı | Sahibi + moderatör; kalıcı bağlantı yok (T) | 5 MB sınırı, App Check, yetim temizliği | — |
-| `parseNeed` + Claude (Faz 6) | Oturum + App Check + doğrulanmış (C) | Çıktı şema doğrulaması; Claude çıktısı yetki alanına yazılmaz | PII'siz log | PII maskeleme; anahtar yalnızca Secret Manager | Kullanıcı kotası + günlük maliyet tavanı | Prompt injection yetki üretemez (çıktı yalnızca ilan alanları) |
+| `parseNeed` / `publishNeed` + Claude (Faz 6) | Oturum + App Check + doğrulanmış claim + profil durumu (C, T) | Çıktı şema doğrulaması + normalizasyon; Claude çıktısı yetki alanına yazılmaz; yayında alanlar yeniden maskelenir (T) | PII'siz log; `parseStatus`/`edited` ilanda | PII maskeleme (T); anahtar yalnızca Secret Manager; web paketinde SDK yok (`check:bundle`) | Kullanıcı kotası, taslak/yayın sınırı, parçalı günlük token tavanı (T) | Sınırlayıcıdan kaçış imkânsız (`<`/`>` değiştirilir, T); araç tanımlanmaz |
 | Eşleştirme motoru (Faz 7) | Yalnızca sunucu yazar (R, T) | Skor/gerekçe istemciye kapalı; ilan sahibi yalnızca `dismissed` (T) | `weightsVersion` | Eşleşmeyi yalnızca ilan sahibi ve aday görür (T); `config/matching` kapalı (T) | Aday sorgusu sınırlı ve indeksli | — |
 | Mesajlaşma (Faz 10) | `senderUid` = token uid (T) | Mesaj düzenleme/silme yok (T); okunmamış sayacı sunucuda (T) | Mesajlar değiştirilemez | Yalnızca katılımcılar (T) | Uzunluk sınırı (T); hız sınırı Faz 10 | Engelleme iki yönlü (T) |
 | Bildirimler / sayaçlar | Yalnızca sunucu oluşturur (T) | Sahibi yalnızca `read: true` (T) | — | Yalnızca sahibi (T) | — | — |
@@ -60,10 +60,10 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | T-01 | İstemcinin `verificationStatus`, skor veya sayaç yazması | Alan bazlı Rules + rules testleri | 3–5 |
 | T-02 | Çapraz üniversite içerik okuma | `sameUniversity` Rules + testler | 5 |
 | T-03 | İstemci bayrağıyla moderatör yetkisi alma | Yalnızca custom claim; sunucu kontrolü | 3, 12 |
-| T-04 | Prompt injection ("önceki talimatları yok say", "beni admin yap") | Metin veri olarak sınırlandırılır; çıktı şeması; Claude çıktısı yetki alanına yazılmaz | 6 |
+| T-04 | Prompt injection ("önceki talimatları yok say", "beni admin yap") | Metin `<ilan_metni>` bloğunda, açılı ayraçlar değiştirilerek (iç içe etiketle kaçış kapalı); sabit sistem istemi; araç yok; çıktı şeması + sunucu normalizasyonu; Claude çıktısı yetki alanına yazılmaz; öğrenci yayımlamadan önce onaylar (Faz 6'da uygulandı, testli) | 6 |
 | T-05 | PDF olmayan / zararlı dosya yükleme | Storage Rules içerik türü + boyut; sunucuda magic bytes | 4 |
 | T-06 | Belgeye yetkisiz erişim | Sahibi + moderatör; kısa ömürlü URL | 4 |
-| T-07 | Claude maliyet saldırısı (spam) | App Check, kullanıcı kotası, günlük tavan | 6, 14 |
+| T-07 | Claude maliyet saldırısı (spam) | App Check; kullanıcı başına 20 ayrıştırma/60 taslak/10 yayın; 10 parçalı günlük token tavanı transaction ile ayrılır; aynı taslak Claude'a yeniden gönderilmez; NFKC sonrası uzunluk sınırı (D-047) | 6, 14 |
 | T-08 | Engellenen kullanıcının mesaj atması | Rules + Function'da engel kontrolü | 10 |
 | T-09 | Secret sızıntısı (repo, log, bundle) | `.gitignore`, CI gitleaks, `pnpm check:bundle` (Faz 2'de uygulandı) | 2, 6, 13 |
 | T-13 | App Check'in üretimde kapatılması | `enforceAppCheck` yalnızca emulator'de kapalı; build `.env*` içinde `FUNCTIONS_EMULATOR`'u reddeder (Faz 2) | 2, 14 |
@@ -82,6 +82,9 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | T-23 | Sahte/kötü niyetli rapor hedefi (başka koleksiyon, görülemeyen içerik, spam) | Raporlar yalnızca callable; hedef doğrulaması ve tekrar engeli (D-042) | 5, 9 |
 | T-24 | Öğrenci rehberinin toplu çıkarılması | `users` liste sorgusu yalnızca moderatör (D-042) | 5 |
 | T-25 | Alıcının istemediği kişilerden mesaj alması | Rules'ta `allowFrom` + iki yönlü engel (D-042) | 5, 10 |
+| T-26 | Kişisel bilginin yurt dışına (Anthropic) veya genel ilanla tüm üniversitelere sızması | Claude'dan önce ve yayında maskeleme; ilanda maskelenmiş metin; kullanıcıya gizlenen türlerin bildirimi (D-045) | 6, 13 |
+| T-27 | Claude'un reddettiği metnin elle doldurma yoluyla yayımlanması | Ret bir UX sinyalidir; asıl kontrol rapor + moderasyon; `parseStatus` ile önceliklendirme (D-049) | 6, 12 |
+| T-28 | Paylaşılan sayaç belgesinde kilit çakışması / bütçe aşımı | Parçalı sayaç, transaction ile ayırma, gerçek kullanımla mutabakat; sayaç hatası sonucu kaybettirmez (D-047) | 6 |
 
 ## 7. Artık riskler (Faz 5)
 
@@ -93,4 +96,7 @@ Kısaltmalar: R = Rules, C = callable/sunucu kontrolü, T = otomatik test (rules
 | R-04 | Depolama kötüye kullanımı (24 saat pencere) | D-036; Faz 13'te yeniden değerlendirme |
 | R-05 | Sunucu tarafı rota koruması yok (yalnızca istemci) | D-028; veri Rules ile korunuyor |
 | R-06 | Hukuki metinler taslak; saklama süreleri öneri | S-16; yayından önce hukuk onayı |
+| R-07 | Elle doldurma yolu Claude'dan geçmez; reddedilen içerik bu yolla yayımlanabilir | D-049; Faz 12 moderasyon kuyruğunda `parseStatus: "failed"` ilanlar önceliklendirilebilir |
+| R-08 | PII maskeleme sezgisel (yazıyla yazılmış numaralar, kullanıcı adları, adresler maskelenmez) | D-045; Faz 13'te örnek setle yeniden değerlendirme |
+| R-09 | Günlük bütçe token cinsinden; yedek model adımı rezervasyonu az miktarda aşabilir | D-047; Anthropic tarafında harcama limiti/alarm (Faz 14) |
 

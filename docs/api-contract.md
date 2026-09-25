@@ -15,8 +15,14 @@ Bölge: `europe-west1` (geçici, S-17). Adlandırma: `v<sürüm>-<ad>`. Tüm cal
 | `v1-submitVerification` | Oturum açmış | `{ requestId }` (dosya önce `verification/{uid}/{requestId}.pdf` yoluna yüklenir) | `{ status: "pending" }` (aynı istekle idempotent) | `failed-precondition` (dosya yok, profil yok, bekleyen/doğrulanmış), `invalid-argument` (PDF değil / boyut), `already-exists` |
 | `v1-reviewVerification` | Moderatör | `{ requestId, decision: "approve" \| "reject", rejectReason?, note? }` (red için sebep zorunlu) | `{ status: "approved" \| "rejected" }` (aynı kararla idempotent) | `permission-denied` (moderatör değil / kendi başvurusu), `not-found`, `failed-precondition` (zaten sonuçlanmış) |
 | `v1-syncVerificationClaims` | Oturum açmış | `{}` | `{ verified: boolean }` — sunucudaki `verificationStatus`'u claim'e yansıtır | `unauthenticated` |
+| `v1-parseNeed` | Doğrulanmış (claim + `users.verificationStatus`) · süre 150 sn | `{ draftId, text }` (`draftId`: istemcinin ürettiği UUID, idempotency anahtarı; `text` 10–1000 karakter, temizleme sonrası da) | `{ draftId, status: "parsed" \| "failed", failReason: "ai-error" \| "refusal" \| "quota" \| "budget" \| null, parsed, confidence, clarifications[], maskedKinds[], maskedText, publishable }` — başarısızlıkta da `parsed` elle doldurma için varsayılanlarla gelir | `not-verified`, `invalid-argument`, `already-exists` (kimlik başka metin/kullanıcı için), `failed-precondition` (taslak işleniyor), `resource-exhausted` (günlük taslak sınırı) |
+| `v1-publishNeed` | Doğrulanmış | `{ draftId, visibility: "campus" \| "global", need }` (`need`: düzenlenmiş `parsedNeedSchema`) | `{ needId }` (= `draftId`; tekrar çağrı aynı ilanı döndürür) | `not-verified`, `not-found` (taslak yok / başkasının), `failed-precondition` (işleniyor, yayımlanamaz, süresi dolmuş), `invalid-argument`, `resource-exhausted` (günlük yayın sınırı) |
 
 Alan kuralları (`packages/contracts/src/schemas/profile.ts`): `displayName` 2–40, `department` 2–80, `bio` ≤ 280, etiket listeleri ≤ 10 öğe (her biri 1–30 karakter; sunucu kırpar, `tr-TR` küçük harfe çevirir, tekilleştirir), kontrol karakteri yasak. `acceptedTermsVersion` = `LEGAL_TERMS_VERSION` (`2026-09-taslak`).
+
+İhtiyaç alanları (`packages/contracts/src/schemas/need.ts`): `title` 3–80; `category` ∈ `ders`, `proje`, `spor`, `etkinlik`, `ulasim`, `esya`, `yardim`, `diger`; `tags` ve `requiredSkills` ≤ 8 öğe (1–30 karakter, `tr-TR` küçük harf, tekil); `participants` {min, max} tam sayı 1–50, min ≤ max; `when` {kind: `none` \| `exact` \| `range` \| `flexible`, startIso, endIso (saat dilimi farkıyla ISO 8601), rawText ≤ 80} — `exact` başlangıç ister, `range` başlangıç + bitiş (bitiş ≥ başlangıç), `none`/`flexible` tarih taşımaz; `locationHint` ≤ 80 veya `null`. Sunucu yayında metin alanlarındaki kişisel bilgileri yeniden maskeler.
+
+Zaman aşımı: callable süresi sözleşmede (`timeoutSeconds`, varsayılan 30 sn); istemciler bu süre + 10 sn bekler (`callableTimeoutSeconds`).
 
 JSON Schema üretimi: `z.toJSONSchema(schema, { io: "input" })` (istek) ve `z.toJSONSchema(schema)` (yanıt); dönüştürülebilirlik `contracts.test.ts` ile güvence altında.
 
@@ -47,5 +53,7 @@ Tam tablo: `docs/data-model.md` (Faz 5). Özet:
 | `userPrivate/{uid}` | Yalnızca sahibi | Yok — yalnızca callable'lar |
 | `verificationRequests/{id}` | Sahibi, moderatör | Yok — yalnızca callable'lar |
 | `moderationLogs/{id}` | Moderatör | Yok — yalnızca sunucu |
+| `needs/{id}` | Doğrulanmış + (genel veya aynı üniversite) | Yok — yalnızca `v1-publishNeed` |
+| `needDrafts/{id}`, `rateLimits/{key}` | Yok | Yok — yalnızca sunucu |
 | Storage `verification/{uid}/{requestId}.pdf` | Sahibi, moderatör | Yalnızca sahibi, yalnızca oluşturma, PDF, ≤ 5 MB |
 | Diğer her şey | Yok | Yok |

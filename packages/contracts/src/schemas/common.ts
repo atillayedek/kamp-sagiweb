@@ -13,3 +13,9 @@ export const customClaimsSchema = z.object({
 });
 
 export type CustomClaims = z.infer<typeof customClaimsSchema>;
+
+export const VISIBILITIES = ["campus", "global"] as const;
+
+export const visibilitySchema = z.enum(VISIBILITIES);
+
+export type Visibility = z.infer<typeof visibilitySchema>;

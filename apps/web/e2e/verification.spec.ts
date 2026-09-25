@@ -60,7 +60,7 @@ test("belge yükleme, moderatör onayı ve kilidin açılması", async ({ page, 
 
   await expect(page.getByText("Doğrulandın")).toBeVisible();
   await page.goto("/kesfet");
-  await expect(page.getByText("Bu bölüm hazırlanıyor")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bir ihtiyacın mı var?" })).toBeVisible();
   await page.goto("/profil");
   await expect(page.getByText("Doğrulanmış öğrenci", { exact: true })).toBeVisible();
   expect(violations).toEqual([]);

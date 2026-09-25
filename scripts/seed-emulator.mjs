@@ -42,6 +42,48 @@ export async function createUser({ email, password, claims }) {
   return localId;
 }
 
+function firestoreValue(value) {
+  if (value === null) return { nullValue: null };
+  if (value instanceof Date) return { timestampValue: value.toISOString() };
+  if (Array.isArray(value)) return { arrayValue: { values: value.map(firestoreValue) } };
+  if (typeof value === "string") return { stringValue: value };
+  if (typeof value === "boolean") return { booleanValue: value };
+  if (typeof value === "number") return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  return { mapValue: { fields: firestoreFields(value) } };
+}
+
+function firestoreFields(object) {
+  return Object.fromEntries(Object.entries(object).map(([key, value]) => [key, firestoreValue(value)]));
+}
+
+export async function writeDocument(path, data) {
+  await request(`${documents}/${path}`, { method: "PATCH", body: JSON.stringify({ fields: firestoreFields(data) }) });
+}
+
+export async function createVerifiedStudent({ email, password, displayName, universityId = "odtu" }) {
+  const uid = await createUser({ email, password, claims: { verified: true, universityId } });
+  const now = new Date();
+  await writeDocument(`users/${uid}`, {
+    displayName,
+    universityId,
+    department: "Bilgisayar Mühendisliği",
+    interests: ["basketbol"],
+    skills: ["python"],
+    bio: "",
+    verificationStatus: "verified",
+    reputationScore: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeDocument(`userPrivate/${uid}`, {
+    legal: { acceptedTermsVersion: "2026-09-taslak", acceptedAt: now },
+    privacy: { profileVisibility: "campus" },
+    messaging: { allowFrom: "campus" },
+    createdAt: now,
+  });
+  return uid;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   await resetEmulators();
   console.log(`Emulator sıfırlandı; ${await seedUniversities()} demo üniversite yüklendi.`);

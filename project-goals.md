@@ -1,6 +1,6 @@
 # KampüsAğı Web — Proje Hedefleri
 
-> Durum: **Faz 0–3 tamamlandı; Faz 4 sürüyor** · Son güncelleme: 2026-09-25
+> Durum: **Faz 0–6 tamamlandı; Faz 7 sürüyor** · Son güncelleme: 2026-09-25
 > Bu dosyadaki "ÖNERİ" etiketli her şey kesin karar değildir. "BELİRSİZ / KARAR BEKLİYOR" maddeleri §11'de listelidir; kararlar `memory-bank/Memory_Bank.md` içinde kayıt altına alınır.
 
 ---
@@ -158,7 +158,7 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-08 | Moderatör arayüzü nerede | BELİRSİZ | Web'de `/admin` (custom claim + sunucu kontrolü) | Faz 4 |
 | S-09 | İlk moderatör nasıl atanır | BELİRSİZ | Sahibin yerelde çalıştırdığı, commit edilmeyen tek seferlik Admin SDK betiği | Faz 3 |
 | S-10 | Claude modeli, token/maliyet limiti, günlük kullanıcı kotası | BELİRSİZ | Model adı config'ten (geçici varsayılan `claude-opus-5`, bkz. D-004); kota parametrik | Faz 6 |
-| S-11 | İhtiyaç kategori listesi | BELİRSİZ | Kaynakta yalnızca örnekler (spor, ders/proje); taslak liste Faz 6'da onaya sunulur | Faz 6 |
+| S-11 | İhtiyaç kategori listesi | TASLAK UYGULANDI | `ders`, `proje`, `spor`, `etkinlik`, `ulasim`, `esya`, `yardim`, `diger` (D-050); kullanıcı onayı bekliyor | Faz 6 |
 | S-12 | İtibar/güvenilirlik puanı formülü | BELİRSİZ | Sunucu alanı; onaylanana kadar sabit nötr değer | Faz 7 |
 | S-13 | Web push (FCM) / e-posta bildirimi | BELİRSİZ | Önce uygulama içi bildirim merkezi | Faz 10 |
 | S-14 | Mesajlaşma başlatma kuralı | KISMEN BELİRSİZ | Taraflar doğrulanmış + engelleme yok; eşleşme/karşılıklı ilgi şartı onay bekler | Faz 8 |
@@ -180,6 +180,7 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-30 | Firebase projeleri (dev/staging/prod) ve GitHub varsayılan dalı | BELİRSİZ | Proje yok; repo boş (varsayılan dal yok). Faz 2'ye kadar emulator yeterli | Faz 2 |
 | S-31 | Alan adı | BELİRSİZ | `NEXT_PUBLIC_SITE_URL` verilene kadar indeksleme kapalı | Faz 14 |
 | S-32 | E-posta doğrulaması zorunlu mu? | BELİRSİZ | Zorunlu değil; bilgilendirme bandı | Faz 4 |
+| S-33 | Canlı Claude değerlendirmesi ve effort ayarı | BELİRSİZ | Gerçek maliyet olduğu için kullanıcı onayıyla; o zamana kadar API varsayılanları (D-052) | Faz 13 |
 
 ## 12. Başarı kriterleri
 

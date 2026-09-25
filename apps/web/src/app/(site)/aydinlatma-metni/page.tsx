@@ -48,8 +48,10 @@ export default function AydinlatmaMetniPage() {
         <ul>
           <li>Google (Firebase): kimlik doğrulama, veri tabanı, dosya depolama ve sunucu altyapısı</li>
           <li>
-            Anthropic (Claude API): ihtiyaç metninin yapılandırılması. Metindeki telefon numarası, T.C. kimlik numarası,
-            IBAN ve e-posta gibi kalıplar gönderilmeden önce maskelenir.
+            Anthropic (Claude API): ihtiyaç metninden ilan alanları için öneri üretilmesi. Metindeki telefon numarası,
+            T.C. kimlik numarası, IBAN, hesap/kart numarası ve e-posta gibi kalıplar gönderilmeden önce maskelenir;
+            ilanda da maskelenmiş metin saklanır. Öneriler otomatik karar değildir; yayımlamadan önce her alanı sen
+            görür ve düzenlersin.
           </li>
         </ul>
         <p>

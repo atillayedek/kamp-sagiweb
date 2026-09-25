@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 6** (Faz 0–5 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 7** (Faz 0–6 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -19,7 +19,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | Faz 3 | **Tamamlandı**: e-posta/şifre ile kimlik doğrulama (geçici, S-04), onboarding ve profil callable'ları, `users`/`userPrivate`/`universities` Rules, dinamik `(app)` rota grubu, dört sekmeli kabuk, profil sayfası |
 | Faz 4 | **Tamamlandı**: belge yükleme + sunucu doğrulaması, moderatör paneli (`/admin`), onay/red + claim, denetim kaydı, kilitler, saklama/temizlik işi |
 | Faz 5 | **Tamamlandı**: veri modeli kesinleşti (`docs/data-model.md`), tüm koleksiyonlar için alan bazlı Rules, kampüs/genel görünürlük, indeksler, STRIDE |
-| Faz 6 | Başlıyor |
+| Faz 6 | **Tamamlandı**: ihtiyaç yazma → Claude ile yapılandırma (yalnızca sunucu) → önizleme/düzenleme → yayınlama; PII maskeleme, kota + günlük token tavanı, idempotent taslaklar, ilan detay sayfası |
+| Faz 7 | Başlıyor (eşleştirme motoru) |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
 | Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
@@ -70,9 +71,9 @@ Keşif tarihi: 2026-09-25. "Active" = projede kullanılacak; "Koşullu" = yalnı
 | Skill | Kaynak | Kullanım Alanı | Durum |
 |---|---|---|---|
 | `allinone` | Kullanıcı özel skill'i (`~/.claude/skills/synced/…/allinone/SKILL.md`) | Tüm fazlarda koordinasyon: önce anla → skill seç → planla/uygula/doğrula; SOLID, QA atlama yok, yıkıcı işlemde güvenli davran, dış bilgiyi doğrula, olmayan skill'i çalıştırmış gibi yapma | Active |
-| `claude-api` | Yerleşik (Claude Code) | Faz 6 (`parseNeed`, `AIConnector`), Faz 13 (maliyet), Faz 14 (kota/alarm). Kurallar `AI_Guidelines.md` §7'ye işlendi | Active |
+| `claude-api` | Yerleşik (Claude Code) | Faz 6'da TypeScript README + structured outputs + Opus 5 geçiş notları (fallback, effort) okunarak uygulandı (D-043…D-052). Faz 13 (maliyet, `cost-optimize`/`build-eval`), Faz 14 (kota/alarm) | Active |
 | `security-review` | Yerleşik | Her faz sonunda güvenlik incelemesi; özellikle Faz 2–6, 10–14. **Varsayılan dal (`origin/HEAD`) olmadan çalışmıyor** (S-30); o zamana kadar aynı kontrol listesiyle elle inceleme | Active (engelli) |
-| `code-review` | Yerleşik | Her faz sonunda doğruluk incelemesi (Faz 1: çalıştırıldı, 3 bulgu düzeltildi) | Active |
+| `code-review` | Yerleşik | Her faz sonunda doğruluk incelemesi (Faz 1: 3 bulgu; Faz 6: 15 bulgu, 14'ü düzeltildi, 1'i artık risk olarak belgelendi) | Active |
 | `simplify` | Yerleşik | Kod içeren faz sonlarında sadeleştirme/yeniden kullanım | Active |
 | `run` | Yerleşik | Faz 1'den itibaren uygulamayı başlatıp değişikliği gerçek tarayıcıda doğrulama. Faz 1'de doğrulama doğrudan Playwright (ekran görüntüsü + e2e) ile yapıldı | Active |
 | `startup-hook-skill` (session-start-hook) | Kullanıcı düzeyi (`~/.claude/skills/session-start-hook`) | Faz 2: `.claude/hooks/session-start.sh` oluşturuldu (senkron, yalnızca web; `pnpm install`, `PW_CHROMIUM_PATH`) | Active (uygulandı) |
@@ -442,6 +443,78 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: Düzenlemeye izin verip sürüm geçmişi tutmak.
 - Risk: Kullanıcılar gönderiyi düzeltemez (silip yeniden yazabilir — silme Faz 9 callable'ı).
 
+**D-043 — Claude çağrı biçimi (AI_Guidelines §7.3'ten sapma)**
+- Decision: `client.beta.messages.create()` + `betas: ["server-side-fallback-2026-07-01"]` + `fallbacks: "default"` + `output_config.format: betaZodOutputFormat(aiNeedOutputSchema)`. Yanıtta önce `stop_reason` (`refusal`, `max_tokens`) kontrol edilir; sonra **son** metin bloğu `JSON.parse` + Zod ile sunucuda doğrulanır. `messages.parse()` kullanılmaz.
+- Why: `fallbacks` parametresi yalnızca beta API'de. `parse()` yardımcısı **ilk** metin bloğunu ayrıştırır; yedek modele geçilen yanıtta ilk blok reddeden modelin yarım çıktısı olabilir ve istisna fırlatır. `create()` + kendi doğrulamamız skill'de belgelenmiş kullanım ("create'e verilebilir, ayrıştırmayı kendin yaparsın").
+- Alternative: `messages.parse()` ve fallback'siz çağrı.
+- Risk: Beta API şekil değişikliği → SDK sürümü sabit (0.128.0), yanıt şekli testlerde mock'lanıyor.
+
+**D-044 — Claude'a verilen şema ile alan şeması ayrı**
+- Decision: Claude'a sade bir çıktı şeması verilir (uzunluk/sayı sınırı yok). Sunucu normalizasyonu metni temizler, yeniden maskeler, kısaltır; kişi sayısını 1–50'ye sıkıştırır; tarih/saatin makul olup olmadığını denetler (−1 gün…+366 gün, saat dilimi farkı zorunlu). Zaman türünü tutarlı kılar, sonra katı `parsedNeedSchema`'yı uygular. Düşen tarih için "hangi tarih ve saatte?" sorusu eklenir.
+- Why: Structured outputs uzunluk ve aralık kısıtlarını desteklemez (SDK bunları açıklamaya taşır); küçük taşmalar başarısızlığa dönmemeli. Claude karar verici değil, yalnızca öneri üretir.
+- Alternative: Katı şemayı doğrudan Claude'a vermek.
+- Risk: Sessiz kısaltma. Kullanıcı yayımlamadan önce her alanı görüp düzenler.
+
+**D-045 — PII maskeleme**
+- Decision: Metin önce NFKC ile normalleştirilir, yerel rakamlar (Arapça-Hint vb.) ASCII'ye çevrilir, görünmez/yön karakterleri silinir. Maskelenen kalıplar:
+  - e-posta;
+  - `TR` IBAN;
+  - rakam grubu sınıflandırıcısı: ≥ 16 hane hesap/kart numarası; `+` ile başlayan uluslararası telefon; 0/90/0090 önekli ya da öneksiz 10 haneli Türk telefonu; bitişik 11 hane veya sağlama toplamı geçerli bölünmüş TCKN.
+  - Maskeleme dört yerde uygulanır: Claude'a giden metin, taslak/ilanda saklanan metin, Claude çıktısı ve kullanıcının düzenlediği alanlar. İlanda **maskelenmiş** metin saklanır.
+- Why: Veri minimizasyonu. İlan metni genel görünürlükte tüm üniversitelere açık. Yurt dışı aktarım (S-28).
+- Alternative: Yalnızca Claude'a giden metni maskelemek.
+- Risk: Sezgisel. Yazıyla yazılmış numaralar, sosyal medya kullanıcı adları ve adresler maskelenmez. Yanlış pozitifler kabul edildi (10 haneli öğrenci numarası, bazı sayı listeleri). Kontrol listesi Faz 13'te yeniden gözden geçirilecek.
+
+**D-046 — Taslak ve yayın akışı**
+- Decision: İstemci UUID `draftId` üretir (idempotency anahtarı). Sunucu `needDrafts/{draftId}` belgesini tutar: yalnızca sunucu erişir, 24 saat yaşar. Yayınlanan ilanın kimliği `draftId`'dir; tekrar yayın aynı ilanı döndürür. `parseNeed` şu kurallarla çalışır:
+  - Aynı kimlik farklı metin ya da kullanıcıyla gelirse → `already-exists`.
+  - Ayrıştırılmış, reddedilmiş ya da yayımlanmış taslak yeniden döndürülür; Claude tekrar çağrılmaz.
+  - Başarısız ya da süresi dolmuş taslak yeniden işlenir.
+  - İşlenmekte olan taslak kilitlidir; kilit callable süresinden 10 sn sonra devralınır.
+  - İlanda `parseStatus` (Claude mı, elle mi) ve `edited` (öneri değişti mi) saklanır: kalite ölçümü ve moderasyon önceliği için.
+- Why: Ağ tekrarı ve çift tıklama maliyet üretmesin. Kullanıcı süresi dolan taslakta takılmasın (`code-review` bulgusu).
+- Alternative: Taslaksız, tek adımlı yayın.
+- Risk: Taslak belgeleri kullanıcı metni içerir → TTL + günlük temizlik (D-047), KVKK envanterinde.
+
+**D-047 — Kotalar ve maliyet tavanı (geçici değerler, S-10)**
+- Decision: Tüm sayaçlar gün bazında (Europe/Istanbul) tutulur:
+  - Kullanıcı başına 20 Claude ayrıştırması; aşılınca hata yerine elle doldurma formu açılır.
+  - Kullanıcı başına 60 taslak ve 10 yayın; bunlar kesin sınırdır.
+  - Toplam günlük token bütçesi 2 milyon; 10 parçalı sayaçta tutulur, her ayrıştırma transaction ile 40 bin token ayırır ve gerçek kullanımla mutabakat yapılır. Faturası belirsiz sonuçlar (zaman aşımı, 5xx) ayrılan miktar kadar sayılır. Bütçe dolunca kullanıcının hakkı iade edilir, elle doldurmaya geçilir.
+  - Değerler Firebase params'tan gelir: `AI_MODEL` (varsayılan `claude-opus-5`), `AI_DAILY_USER_PARSES`, `AI_DAILY_TOKEN_BUDGET`, `NEED_DAILY_DRAFTS`, `NEED_DAILY_PUBLISHES`. Anahtar `defineSecret("ANTHROPIC_API_KEY")` ile okunur.
+  - `rateLimits` ve `needDrafts` belgelerinde `expiresAt` alanı vardır: günlük iş tükenene kadar siler; ayrıca Firestore TTL politikası (Faz 14).
+- Why: `code-review`: tek sayaç ve transaction dışı kontrol eşzamanlı isteklerde tavanı aşıyordu; tüm kullanıcıların paylaştığı tek belge de kilit çakışması üretiyordu.
+- Alternative: Tek sayaç veya harici kota servisi.
+- Risk: Bütçe token cinsinden, maliyet cinsinden değil. Yedek model adımı ayrılan miktarı biraz aşabilir. Parça dolunca bütçe kalsa bile en fazla ~%10 erken elle doldurmaya düşülebilir.
+
+**D-048 — Zaman aşımı ve yeniden deneme**
+- Decision: SDK `timeout` 45 sn, `maxRetries` 1. Uygulama katmanında yalnızca şema uyuşmazlığında (`invalid-output`) ve ilk 30 sn içindeyse **1** yeniden deneme yapılır (§7.8). `max_tokens`, zaman aşımı ve 5xx yeniden denenmez. Callable süresi sözleşmede tanımlı (`callables.parseNeed.timeoutSeconds = 150`); istemci süresi +10 sn.
+- Why: `code-review`: istemcinin varsayılan 70 sn süresi sunucudan kısaydı; kesilen yanıtı aynı `max_tokens` ile tekrar denemek boşa maliyetti.
+- Risk: Nadir uzun yanıtlarda kullanıcı elle doldurmaya düşer.
+
+**D-049 — Reddetme (refusal) işleme**
+- Decision: Sunucu tarafı yedek model açık (D-006). Zincirin tamamı reddederse taslak `publishable: false` olur ve kullanıcı metne döner. Aynı taslak Claude'a yeniden gönderilmez.
+- Why: Açık içerik sinyali; kullanıcıya anlaşılır mesaj.
+- Alternative: Reddi yok saymak.
+- Risk: **Güvenlik kontrolü değildir.** Elle doldurma yolu (kota, bütçe, AI hatası) Claude'dan geçmez; asıl kontrol rapor + moderasyon (Faz 12). Artık risk R-07.
+
+**D-050 — İhtiyaç kategorileri (S-11 taslağı)**
+- Decision: `ders`, `proje`, `spor`, `etkinlik`, `ulasim`, `esya`, `yardim`, `diger` (etiketler: Ders çalışma, Proje / takım, Spor, Etkinlik, Yol arkadaşlığı, Eşya paylaşımı, Yardım, Diğer). `contracts` içinde enum.
+- Why: Kaynakta yalnızca örnekler vardı (spor, ders/proje); kampüs ihtiyaçlarının yaygın türleri.
+- Alternative: Serbest metin kategori.
+- Risk: Liste değişirse eski ilanlar için geçiş gerekir. **Kullanıcı onayı bekliyor.**
+
+**D-051 — Emulator'de sahte sağlayıcı**
+- Decision: Emulator'de `AI_PROVIDER` değeri `anthropic` değilse deterministik sahte ayrıştırıcı kullanılır: anahtar kelimelerle çalışır; `#sahte-hata` ve `#sahte-ret` tetikleyicileri vardır. Üretimde her zaman Anthropic kullanılır (`FUNCTIONS_EMULATOR` koruması, D-024). CI'da canlı Claude çağrılmaz.
+- Why: e2e deterministik ve ücretsiz olmalı. Canlı çağrı gerçek maliyettir (§7.15).
+- Risk: Gerçek model davranışı (Türkçe göreli tarih, injection direnci) otomatik testte ölçülmüyor → S-33.
+
+**D-052 — Thinking ve effort ayarı**
+- Decision: `thinking` ve `effort` gönderilmez; API varsayılanları geçerlidir (Opus 5: adaptive thinking açık, effort `high`).
+- Why: Skill kuralı: effort değeri ölçümsüz düşürülmez; `low` ve `medium` bu modelde etkili olabilir ama bu bir değerlendirme sonucu olmalı.
+- Alternative: `effort: "low"` ile gecikmeyi ve maliyeti azaltmak.
+- Risk: Gecikme. Canlı değerlendirme seti ve effort taraması kullanıcı onayı bekliyor (S-33, gerçek maliyet).
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -480,6 +553,12 @@ Font: Source Sans 3 (SIL Open Font License 1.1), `next/font/google` ile derleme 
 pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `protobufjs`, `re2`, `unrs-resolver` bilinçli olarak engelli (`package.json > pnpm`).
 
 **Bağımlılık denetimi (2026-09-25, `pnpm audit --prod`):** 0 yüksek/kritik. 2 orta: (1) `firebase <10.9.0` uyarısı — kurulu tek sürüm 12.19.0, **yanlış pozitif**; (2) `uuid <11.1.1` (`firebase-admin > @google-cloud/storage > gaxios`), yalnızca `buf` parametresiyle v3/v5/v6 çağrısında etkili — **kabul edilen risk**, üst paket güncellemesiyle izlenecek.
+
+**Faz 6 bağımlılıkları**
+
+| Paket | Sürüm | Lisans | Gerekçe |
+|---|---|---|---|
+| `@anthropic-ai/sdk` | 0.128.0 | MIT | Resmî Claude SDK'sı (yalnızca `functions`; web paketinde yok, `check:bundle` doğrular). esbuild'de harici bırakılır, deploy'da `npm install` ile kurulur |
 
 ## 9. Tamamlanan işler
 
@@ -549,11 +628,50 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - [x] `docs/threat-model.md`: STRIDE tablosu ve artık riskler.
 - [x] Faz sonu `code-review` (high, rules odaklı): 10 bulgu → 9 düzeltme (D-042), 1 belgelenmiş istisna; rules testleri 87 → 94.
 
+**Faz 6 (2026-09-25)**
+- [x] `contracts`:
+  - İhtiyaç şemaları: kategoriler, zaman türleri, sınırlar, `parsedNeedSchema`, saklanan ilan şeması.
+  - `v1-parseNeed` (150 sn) ve `v1-publishNeed`; `callableTimeoutSeconds`.
+  - Saat dilimi yardımcıları (`formatZonedIso`, `zonedDayKey`, `zonedLocalToDate`).
+  - Ortak metin şemaları (`boundedText`, `tagList`).
+- [x] Functions:
+  - `ai/`: Anthropic ayrıştırıcısı (D-043), Claude'a verilen şema, sabit Türkçe sistem istemi, sahte sağlayıcı.
+  - `needs/`: temizleme + PII maskeleme (D-045), normalizasyon (D-044), servis (taslak, kota, yayın; D-046, D-047), parçalı token bütçesi.
+  - Callable'lar (App Check, doğrulanmış kullanıcı, Zod, secret) ve günlük temizlik işi (`needDrafts`, `rateLimits`).
+- [x] Web:
+  - `/kesfet/yeni` akışı: yaz → hazırlanıyor → kontrol et/düzenle (canlı önizleme `NeedCard`, açıklama soruları, maskeleme bildirimi, düşük güven uyarısı, elle doldurma) → yayında.
+  - `/kesfet/ilan/[id]` detay sayfası: görünürlük rozeti, başka kampüsten yazar için genel etiket, bulunamadı durumu.
+  - Keşfet'e çağrı kartı; `RadioGroup` bileşeni.
+- [x] Seed: `createVerifiedStudent` (e2e'de hazır doğrulanmış öğrenci).
+- [x] Testler:
+  - Birim 241 (contracts 48, functions 93, web 100).
+  - Rules 99 (sunucu iç koleksiyonları istemciye kapalı).
+  - Emulator 63 (functions 51, web 12).
+  - e2e 139 başarılı + 2 atlanan. Kapsam: yazma → düzenleme → yayın, form hataları, elle doldurma, ret, kampüs izolasyonu, geçersiz kimlik, axe, CSP.
+- [x] Faz sonu `code-review` (high): 15 bulgu. Düzeltmeler:
+  - Token tavanı parçalı rezervasyon oldu; sayaç yazımı sonucu kaybettirmiyor; tek belge kilit çakışması kalktı.
+  - İstemci zaman aşımı sunucuyla uyumlu; yeniden deneme politikası §7.8'e uyduruldu.
+  - İç içe sınırlayıcı etiketle prompt'tan kaçış kapatıldı: `<` ve `>` değiştiriliyor.
+  - PII maskeleme ayraç ve boşluk varyantları, bölünmüş TCKN ve yerel rakamlarla genişletildi.
+  - NFKC sonrası uzunluk kontrolü eklendi.
+  - Temizlik işi tükenene kadar siliyor.
+  - Süresi dolan ya da başarısız taslakta takılma giderildi; maskeleme sonrası uzayan alan kısaltılıyor.
+  - Yazar etiketi yüklenirken yanlış gösterilmiyor.
+  - `needDrafts` KVKK envanterine eklendi; SDK istemcisi ve şema bir kez oluşturuluyor.
+  - Kalan bulgu (elle doldurma yolunun reddi atlatması) güvenlik kontrolü olmadığı için belgelendi (D-049, R-07).
+- [x] e2e axe yardımcısı, Next 16'nın akışla gelen `<title>`'ını bekliyor (yarış durumu giderildi).
+
 ## 10. Sonraki adımlar
 
-1. Faz 6: `parseNeed` callable (auth + verified + App Check + Zod + kota + idempotency), PII maskeleme, Claude çağrısı (yalnızca sunucu, `claude-api` skill kuralları, structured outputs), yapılandırılmış önizleme → onay → yayınlama UI'ı, mock'lu testler.
-2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-04, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31, S-32.
+1. Faz 7: eşleştirme motoru (sunucuda skor, `breakdown`, Türkçe gerekçeler, `weightsVersion`; S-03 normalize ağırlıklar; ilan yayınlanınca tetikleme; ilan sahibine ve adaya görünürlük).
+2. Kullanıcıdan bekleyen kararlar (D-012): S-01, S-04, S-11 (kategori listesi, D-050), S-17 (Firebase bölgesi), S-25, S-30/S-31, S-32, S-33 (canlı Claude değerlendirmesi ve effort taraması — gerçek maliyet).
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
+
+**Faz 14 kontrol listesine eklenenler (Faz 6)**
+- `firebase functions:secrets:set ANTHROPIC_API_KEY` (değer yalnızca Secret Manager'da; repo, log ve dokümana yazılmaz).
+- Firestore TTL politikaları: `needDrafts.expiresAt`, `rateLimits.expiresAt`.
+- Params değerlerinin gözden geçirilmesi (`AI_MODEL`, kotalar, günlük token bütçesi) ve Anthropic tarafında harcama limiti/alarmı.
+- Anthropic veri saklama koşulları ve yurt dışı aktarım (S-16, S-28) hukuk onayı.
 
 ## 11. Açık sorular
 
@@ -570,8 +688,8 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | S-07 | Belge doğrulaması manuel mi | Manuel |
 | S-08 | Moderatör arayüzü | Web `/admin` |
 | S-09 | İlk moderatör | Yerel, commit edilmeyen Admin SDK betiği |
-| S-10 | Claude modeli / kota | Config; `claude-opus-5`; kota parametrik |
-| S-11 | Kategori listesi | Faz 6'da taslak |
+| S-10 | Claude modeli / kota | Params; `claude-opus-5`; 20 ayrıştırma/kullanıcı/gün, 2M token/gün (D-047) |
+| S-11 | Kategori listesi | Taslak uygulandı (D-050); onay bekliyor |
 | S-12 | İtibar formülü | Sabit nötr değer |
 | S-13 | Web push / e-posta | Önce uygulama içi |
 | S-14 | Mesaj başlatma kuralı | Doğrulanmış + engel yok |
@@ -593,6 +711,7 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | S-30 | Firebase projeleri / varsayılan dal | Yok; Faz 2'ye kadar emulator |
 | S-31 | Alan adı (kanonik URL, sitemap) | `NEXT_PUBLIC_SITE_URL` ile verilecek; yoksa `http://localhost:3000` ve indeksleme kapalı |
 | S-32 | E-posta doğrulaması zorunlu mu? | Hayır; bilgilendirme bandı gösteriliyor (D-026) |
+| S-33 | Canlı Claude değerlendirmesi / effort ayarı | Yapılmadı (gerçek maliyet); API varsayılanları (D-052) |
 
 ## 12. Değişiklik günlüğü
 
@@ -604,3 +723,5 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 3 | Kimlik doğrulama, onboarding, profil, üniversite; Rules + testler; e2e emulator akışı; D-026…D-032 |
 | 2026-09-25 | 4 | Öğrenci doğrulaması, moderatör paneli, claim akışı, saklama/temizlik; D-033…D-038 |
 | 2026-09-25 | 5 | Veri modeli, tüm koleksiyon Rules'u, 87 rules testi, indeksler, STRIDE; D-039…D-041 |
+| 2026-09-25 | 5 | Rules incelemesi sonrası sıkılaştırmalar; D-042 |
+| 2026-09-25 | 6 | İhtiyaç yazma + Claude yapılandırma, PII maskeleme, kota/bütçe, taslak/yayın, ilan detayı; D-043…D-052 |

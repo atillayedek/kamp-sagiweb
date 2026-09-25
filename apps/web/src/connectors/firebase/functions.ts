@@ -1,4 +1,10 @@
-import { callables, type CallableKey, type CallableRequest, type CallableResponse } from "@kampusagi/contracts";
+import {
+  callables,
+  callableTimeoutSeconds,
+  type CallableKey,
+  type CallableRequest,
+  type CallableResponse,
+} from "@kampusagi/contracts";
 import { httpsCallable, type Functions } from "firebase/functions";
 import { toAppError } from "../errors";
 import { parseOrThrow } from "../parse";
@@ -12,7 +18,8 @@ export class FirebaseFunctionsConnector implements FunctionsConnector {
     const request = parseOrThrow(contract.request, input, `${contract.name} isteği`);
     let data: unknown;
     try {
-      data = (await httpsCallable(this.functions, contract.name)(request)).data;
+      const timeout = (callableTimeoutSeconds(key) + 10) * 1000;
+      data = (await httpsCallable(this.functions, contract.name, { timeout })(request)).data;
     } catch (error) {
       throw toAppError(error);
     }

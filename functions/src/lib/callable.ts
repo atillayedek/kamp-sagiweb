@@ -1,11 +1,13 @@
 import {
   callables,
+  callableTimeoutSeconds,
   FUNCTIONS_REGION,
   type CallableKey,
   type CallableRequest,
   type CallableResponse,
 } from "@kampusagi/contracts";
 import { logger } from "firebase-functions";
+import type { SecretParam } from "firebase-functions/params";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import type { z } from "zod";
 import { parseRequest, resolveCaller, type Access, type Caller } from "./access";
@@ -20,7 +22,7 @@ type Handler<K extends CallableKey> = (
 
 type CallableDefinition<K extends CallableKey> = {
   access: Access;
-  timeoutSeconds?: number;
+  secrets?: SecretParam[];
   handler: Handler<K>;
 };
 
@@ -30,7 +32,8 @@ export function defineCallable<K extends CallableKey>(key: K, definition: Callab
     {
       region: FUNCTIONS_REGION,
       enforceAppCheck: !runningInEmulator,
-      timeoutSeconds: definition.timeoutSeconds ?? 30,
+      timeoutSeconds: callableTimeoutSeconds(key),
+      ...(definition.secrets ? { secrets: definition.secrets } : {}),
     },
     async (request) => {
       const startedAt = Date.now();

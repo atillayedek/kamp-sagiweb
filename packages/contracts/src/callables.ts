@@ -1,4 +1,10 @@
 import type { z } from "zod";
+import {
+  parseNeedRequestSchema,
+  parseNeedResponseSchema,
+  publishNeedRequestSchema,
+  publishNeedResponseSchema,
+} from "./schemas/need";
 import { pingRequestSchema, pingResponseSchema } from "./schemas/ping";
 import {
   completeOnboardingRequestSchema,
@@ -48,9 +54,27 @@ export const callables = {
     request: syncVerificationClaimsRequestSchema,
     response: syncVerificationClaimsResponseSchema,
   },
+  parseNeed: {
+    name: "v1-parseNeed",
+    request: parseNeedRequestSchema,
+    response: parseNeedResponseSchema,
+    timeoutSeconds: 150,
+  },
+  publishNeed: {
+    name: "v1-publishNeed",
+    request: publishNeedRequestSchema,
+    response: publishNeedResponseSchema,
+  },
 } as const;
 
 export type CallableKey = keyof typeof callables;
+
+export const DEFAULT_CALLABLE_TIMEOUT_SECONDS = 30;
+
+export function callableTimeoutSeconds(key: CallableKey): number {
+  const contract = callables[key];
+  return "timeoutSeconds" in contract ? contract.timeoutSeconds : DEFAULT_CALLABLE_TIMEOUT_SECONDS;
+}
 
 export type CallableRequest<K extends CallableKey> = z.input<(typeof callables)[K]["request"]>;
 

@@ -1,25 +1,6 @@
 import { z } from "zod";
 import { isoDateTimeSchema, universityIdSchema } from "./common";
-
-const CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
-
-function text(min: number, max: number) {
-  return z
-    .string()
-    .trim()
-    .min(min)
-    .max(max)
-    .refine((value) => !CONTROL_CHARS.test(value), "Kontrol karakteri içeremez");
-}
-
-const tagSchema = text(1, 30).transform((value) => value.toLocaleLowerCase("tr-TR"));
-
-function tagList(max: number) {
-  return z
-    .array(tagSchema)
-    .max(max)
-    .transform((values) => [...new Set(values)]);
-}
+import { boundedText as text, tagList } from "./text";
 
 export const PROFILE_LIMITS = {
   displayName: { min: 2, max: 40 },

@@ -18,6 +18,6 @@ await build({
   format: "esm",
   sourcemap: true,
   alias: { "@kampusagi/contracts": fileURLToPath(new URL("../packages/contracts/src/index.ts", import.meta.url)) },
-  external: ["firebase-admin", "firebase-admin/*", "firebase-functions", "firebase-functions/*", "zod"],
+  external: ["@anthropic-ai/sdk", "firebase-admin", "firebase-admin/*", "firebase-functions", "firebase-functions/*", "zod"],
   logLevel: "info",
 });

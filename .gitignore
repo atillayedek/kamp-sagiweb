@@ -1,6 +1,8 @@
 .env
 .env.*
 !.env.example
+.secret.local
+*.secret.local
 *.pem
 *.key
 serviceAccount*.json

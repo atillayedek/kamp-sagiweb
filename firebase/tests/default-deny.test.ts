@@ -11,6 +11,8 @@ beforeAll(async () => {
   env = await createTestEnv();
   await env.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), "kurali-olmayan/u1"), { ownerUid: "u1" });
+    await setDoc(doc(context.firestore(), "needDrafts/taslak-1"), { uid: "u1", maskedText: "metin" });
+    await setDoc(doc(context.firestore(), "rateLimits/needs_u1_2026-09-25"), { drafts: 1 });
     await uploadString(ref(context.storage(), "kurali-olmayan/u1/dosya.pdf"), "%PDF-1.7");
   });
 });
@@ -37,6 +39,27 @@ describe("Firestore varsayılan olarak her şeyi reddeder", () => {
   it("moderatör claim'i tek başına açık kural olmadan erişim sağlamaz", async () => {
     const db = env.authenticatedContext("mod", verifiedModeratorClaims).firestore();
     await assertFails(getDoc(doc(db, "kurali-olmayan/u1")));
+  });
+});
+
+describe("Sunucu iç koleksiyonları istemciye kapalıdır", () => {
+  const owner = () => env.authenticatedContext("u1", { verified: true, universityId: "odtu" }).firestore();
+
+  it.each(["needDrafts/taslak-1", "rateLimits/needs_u1_2026-09-25", "config/ai"])(
+    "sahibi bile okuyamaz: %s",
+    async (path) => {
+      await assertFails(getDoc(doc(owner(), path)));
+    },
+  );
+
+  it("taslak ve sayaç yazılamaz", async () => {
+    await assertFails(setDoc(doc(owner(), "needDrafts/taslak-2"), { uid: "u1", status: "parsed" }));
+    await assertFails(setDoc(doc(owner(), "rateLimits/needs_u1_2026-09-25"), { drafts: 0 }));
+  });
+
+  it("moderatör de okuyamaz", async () => {
+    const db = env.authenticatedContext("mod", verifiedModeratorClaims).firestore();
+    await assertFails(getDoc(doc(db, "needDrafts/taslak-1")));
   });
 });
 
