@@ -22,6 +22,9 @@ export type Session = {
 export interface AuthConnector {
   observeSession(listener: (session: Session | null) => void): Unsubscribe;
   refreshSession(): Promise<Session | null>;
+  signInWithEmail(email: string, password: string): Promise<void>;
+  signUpWithEmail(email: string, password: string): Promise<void>;
+  sendPasswordReset(email: string): Promise<void>;
   signOut(): Promise<void>;
 }
 
@@ -29,8 +32,11 @@ export interface FunctionsConnector {
   call<K extends CallableKey>(key: K, input: CallableRequest<K>): Promise<CallableResponse<K>>;
 }
 
+export type ListedDocument<T> = { id: string; data: T };
+
 export interface DocumentSource {
   getDocument<S extends z.ZodType>(path: string, schema: S): Promise<z.output<S> | null>;
+  listCollection<S extends z.ZodType>(path: string, schema: S): Promise<Array<ListedDocument<z.output<S>>>>;
   watchDocument<S extends z.ZodType>(
     path: string,
     schema: S,

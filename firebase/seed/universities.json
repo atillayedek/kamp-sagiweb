@@ -1,0 +1,10 @@
+{
+  "_not": "Yalnızca emulator ve e2e için demo verisi. Üretim listesi S-06 kararıyla yönetici tarafından eklenecek.",
+  "universities": {
+    "odtu": { "name": "Orta Doğu Teknik Üniversitesi", "city": "Ankara" },
+    "bogazici": { "name": "Boğaziçi Üniversitesi", "city": "İstanbul" },
+    "itu": { "name": "İstanbul Teknik Üniversitesi", "city": "İstanbul" },
+    "hacettepe": { "name": "Hacettepe Üniversitesi", "city": "Ankara" },
+    "ege": { "name": "Ege Üniversitesi", "city": "İzmir" }
+  }
+}

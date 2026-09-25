@@ -10,7 +10,7 @@ describe("callable sözleşmeleri", () => {
   });
 
   it.each(Object.entries(callables))("%s şemaları iOS için JSON Schema'ya dönüştürülebilir", (_key, callable) => {
-    expect(() => z.toJSONSchema(callable.request)).not.toThrow();
+    expect(() => z.toJSONSchema(callable.request, { io: "input" })).not.toThrow();
     expect(() => z.toJSONSchema(callable.response)).not.toThrow();
   });
 });

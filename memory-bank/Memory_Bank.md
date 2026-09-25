@@ -1,7 +1,7 @@
 # KampüsAğı Web — Memory Bank
 
 > Projenin kalıcı hafızası. Her faz sonunda güncellenir.
-> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 3** (Faz 0–2 tamamlandı; kullanıcı "otomatik devam" dedi)
+> Son güncelleme: 2026-09-25 · Aktif faz: **Faz 4** (Faz 0–3 tamamlandı; kullanıcı "otomatik devam" dedi)
 
 ---
 
@@ -16,7 +16,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | Faz 0 | Tamamlandı. Kullanıcı "otomatik devam" dedi; açık sorulara yanıt verilmediği için geçici varsayılanlar uygulanıyor (D-012) |
 | Faz 1 | **Tamamlandı**: tasarım token'ları, bileşen kütüphanesi + `TearOffStrip`, `/tasarim` galerisi, landing, yasal sayfa taslakları, SEO, testler |
 | Faz 2 | **Tamamlandı**: `packages/contracts`, `functions/` (callable sarmalayıcı + `v1-ping`), `firebase/` (default deny + rules testleri), web connector katmanı, CSP, CI, SessionStart hook |
-| Faz 3 | Başlıyor |
+| Faz 3 | **Tamamlandı**: e-posta/şifre ile kimlik doğrulama (geçici, S-04), onboarding ve profil callable'ları, `users`/`userPrivate`/`universities` Rules, dinamik `(app)` rota grubu, dört sekmeli kabuk, profil sayfası |
+| Faz 4 | Başlıyor |
 | Uygulama kodu | `apps/web` (Next.js 16.3.6, App Router, Tailwind 4, TypeScript 6.0) |
 | Repo | pnpm workspace (`apps/*`, `packages/*`, `functions`, `firebase`) |
 | Çalışma dalı | `claude/upbeat-maxwell-9mivgs` (uzak repoda tek dal; varsayılan dal yok, PR açılamadı — S-30) |
@@ -41,6 +42,8 @@ KampüsAğı; doğrulanmış üniversite öğrencilerinin ihtiyaçlarını doğa
 | `pnpm check:bundle` | Web build çıktısında Anthropic/sır izi taraması |
 | `pnpm test:rules` | Firestore + Storage emulator'de Security Rules testleri (Java gerekir) |
 | `pnpm test:emulator` | Functions build + Auth/Firestore/Storage/Functions emulator'lerinde web connector entegrasyon testi |
+| `pnpm test:e2e` | Functions build + web'in emulator bayrağıyla build'i + emulator'ler üzerinde tüm Playwright testleri (seed dahil) |
+| `pnpm dev:local` | Emulator'ler + demo üniversite seed'i + `next dev` (tek komutla yerel geliştirme) |
 
 Emulator komutları `scripts/emulators-exec.mjs` üzerinden çalışır (Windows uyumlu; bu ortamdaki `JAVA_TOOL_OPTIONS` Storage rules çalışma zamanını bozduğu için alt süreçten kaldırılır).
 
@@ -336,6 +339,48 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: —
 - Risk: İlk CI koşusunda gitleaks yanlış pozitif verirse `.gitleaksignore` ile, gerekçesi yazılarak ele alınır.
 
+**D-026 — Kimlik doğrulama yöntemi (geçici, S-04)**
+- Decision: Firebase Auth e-posta + şifre; kayıttan sonra e-posta doğrulama bağlantısı gönderilir (zorunlu kılınmadı); şifre en az 8 karakter (istemci); şifre sıfırlama hesap varlığını sızdırmaz.
+- Why: Evrensel, emulator'de test edilebilir; asıl güvenlik kapısı öğrenci belgesi doğrulaması (Faz 4). Kullanıcı yanıt vermediği için ÖNERİ uygulandı (D-012).
+- Alternative: Google/Apple girişi, üniversite e-postası doğrulaması, telefon.
+- Risk: Yöntem değişirse `AuthConnector`'a yeni metot eklenir; mevcut hesaplar korunur. E-posta doğrulamasının zorunlu olup olmayacağı açık soru (S-32).
+
+**D-027 — Profil yazımı yalnızca callable ile**
+- Decision: `users/{uid}` ve `userPrivate/{uid}` için istemci yazımı Rules'ta tamamen kapalı; oluşturma `v1-completeOnboarding`, düzenleme `v1-updateProfile` ile. `universityId` onboarding sonrası değiştirilemez.
+- Why: Rules liste öğelerini tek tek doğrulayamaz (döngü yok); Zod ile tam doğrulama ve sunucu alanlarının (`verificationStatus`, `reputationScore`) güvenli varsayılanla yazılması sunucuda garanti edilir. Üniversite değişikliği izolasyonu bozacağı için doğrulama akışına bağlanacak (Faz 4/5).
+- Alternative: Rules ile alan bazlı doğrudan yazım (`affectedKeys().hasOnly`).
+- Risk: Her profil düzenlemesi bir Function çağrısı (düşük hacim, kabul edilebilir).
+
+**D-028 — Sunucu tarafı rota koruması (skill/prompt önerisinden sapma)**
+- Decision: Rotalar istemcide korunur (oturum → profil kapıları; güvenli `next`). Gerçek güvenlik sınırı Firestore Rules ve callable yetki kontrolüdür. Sunucu tarafı oturum çerezi (Admin SDK ile) **hosting kararına (S-02) kadar ertelendi**.
+- Why: Uygulama sayfaları sunucuda veri içermez; tüm veri istemcide Rules altında okunur. Oturum çerezi Next sunucusunda Admin kimlik bilgisi gerektirir (Vercel'de ek sır; App Hosting'de ADC) — hosting belirsizken sır yönetimi eklemek istenmedi.
+- Alternative: `__session` çerezi + `proxy.ts`'te doğrulama.
+- Risk: Oturumsuz kullanıcı uygulama kabuğunun boş HTML'ini alır (veri yok). Faz 14 öncesi yeniden değerlendirilecek.
+
+**D-029 — Veri minimizasyonu: e-posta Firestore'a kopyalanmaz**
+- Decision: E-posta yalnızca Firebase Auth'ta tutulur; `userPrivate`'e yazılmaz. `userPrivate` yalnızca koşul kabulü (sürüm + zaman), gizlilik (`profileVisibility: "campus"`) ve mesajlaşma (`allowFrom: "campus"`) varsayılanlarını içerir.
+- Why: KVKK veri minimizasyonu; taslak veri modeli e-postayı `userPrivate`'te öngörüyordu.
+- Alternative: E-postayı kopyalamak.
+- Risk: Yok. Gizlilik/mesajlaşma varsayılanları S-14 ve Faz 11'de kesinleşecek.
+
+**D-030 — Koşul kabulü**
+- Decision: Onboarding'de "Kullanım Şartları'nı kabul ediyorum ve Aydınlatma Metni'ni okudum" kutusu zorunlu; `LEGAL_TERMS_VERSION = "2026-09-taslak"` sunucuda doğrulanır ve `userPrivate.legal`'a zamanla yazılır. Aydınlatma bir **rıza değil bilgilendirmedir**; metin buna göre yazıldı.
+- Why: Hangi sürümün kabul edildiğinin kanıtlanabilmesi.
+- Alternative: Kayıt ekranında kabul.
+- Risk: Metinler taslak; hukuk onayından sonra sürüm değişir ve yeniden kabul akışı gerekir (Faz 11).
+
+**D-031 — Zorunlu alan göstergesi**
+- Decision: Etiket yanında `aria-hidden` kırmızı `*` + form başında "* ile işaretli alanlar zorunludur." + `required` özniteliği.
+- Why: "(zorunlu)" metni erişilebilir adı kirletiyordu ("Şifre (tekrar) (zorunlu)"); ekran okuyucular `required`'ı zaten duyurur.
+- Alternative: İsteğe bağlı alanları işaretlemek.
+- Risk: Yok.
+
+**D-032 — Demo üniversite verisi**
+- Decision: `firebase/seed/universities.json` (5 gerçek üniversite adı) yalnızca emulator/e2e içindir; `scripts/seed-emulator.mjs` REST ile yazar. Üretim listesi S-06 kararıyla yönetilecek.
+- Why: Onboarding'in yerelde ve testte çalışması.
+- Alternative: Tam liste (YÖK kaynağından) — doğrulanmadan eklenmedi.
+- Risk: Yok.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -411,11 +456,24 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - [x] SessionStart hook (`startup-hook-skill` kurallarıyla; senkron, yalnızca web oturumunda; doğrulandı).
 - [x] Faz sonu `code-review`: 4 bulgu → functions deploy paketleme, `observeSession` yarış durumu (3 test), Storage bucket varsayılanı düzeltildi; nonce CSP + statik sayfa uyumsuzluğu Faz 3 kuralı olarak kaydedildi (D-021).
 - [x] Güvenlik incelemesi: `security-review` skill'i varsayılan dal olmadığı için çalışamadı (`origin/HEAD` yok, S-30); aynı kontrol listesiyle elle yapıldı → `FUNCTIONS_EMULATOR` ile App Check'in kapatılabilmesi riski build korumasıyla kapatıldı.
+- [x] İlk CI koşusu (run 36155929590): 4/4 job yeşil; gitleaks temiz (D-025 doğrulandı).
+
+**Faz 3 (2026-09-25)**
+- [x] `contracts`: profil şemaları (kırpma, `tr-TR` küçük harf, tekilleştirme, kontrol karakteri yasağı, sınırlar), `LEGAL_TERMS_VERSION`, `v1-completeOnboarding`, `v1-updateProfile`.
+- [x] Functions: onboarding (transaction: üniversite var mı, profil var mı, idempotent, üniversite değiştirilemez) ve profil güncelleme callable'ları.
+- [x] Rules: `universities` (oturumlu okur), `users` (sahibi / moderatör / aynı üniversitedeki doğrulanmış öğrenci okur; istemci yazamaz), `userPrivate` (yalnızca sahibi okur). 26 rules testi.
+- [x] Web: `AuthConnector` e-posta/şifre metotları, `listCollection`, Timestamp → ISO dönüştürme; `SessionProvider`, `useOwnProfile`, `useUniversities`; `RequireSession`/`RequireProfile`/`RedirectIfSignedIn`; `safeNextPath` (açık yönlendirme koruması); giriş, kayıt, şifre sıfırlama, başlangıç (onboarding), dört sekmeli kabuk (Keşfet/Topluluklar/Mesajlar placeholder), profil görüntüleme/düzenleme/çıkış.
+- [x] `(app)` layout'u `connection()` ile dinamik; e2e nonce CSP testi uygulama rotalarında ihlal olmadığını doğruluyor (D-021 kuralı karşılandı).
+- [x] Emulator seed/reset betiği, `pnpm dev:local`, `pnpm test:e2e` (CI e2e job'u emulator'lü akışa taşındı).
+- [x] Dokümanlar: `docs/api-contract.md` (callable + claim + Firestore erişim sözleşmesi taslağı), `docs/runbooks/ilk-moderator.md` (commit edilmeyen betik talimatı).
+- [x] Testler: birim 118, rules 26, emulator 12, e2e 106 (3 görünüm; kayıt→onboarding→profil→düzenleme→çıkış→giriş, açık yönlendirme, `next` korunması, hata mesajları, axe).
+- [x] Görsel kontrol (360/1440): mobil profil başlığı ve bant yerleşimi düzeltildi.
+- [x] Faz sonu `code-review`: 4 bulgu (seed betiği boşluklu/Türkçe yolda çalışmıyordu, Windows'ta boşluklu yol, kayıt akışında `next` kaybı, çıkış hatasının yutulması) → dördü de düzeltildi, `next` için 2 yeni e2e testi eklendi.
 
 ## 10. Sonraki adımlar
 
-1. Faz 3: kimlik doğrulama yöntemi (S-04 — geçici varsayılan uygulanacak), `(app)` rota grubu (**dinamik render zorunlu**, D-021), onboarding, profil, `users` Rules + testleri, claim akışı, ilk moderatör betiği.
-2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-04, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31.
+1. Faz 4: öğrenci belgesi yükleme (Storage Rules + `verificationRequests`), moderatör paneli (`/admin`), onay/red callable'ı (claim + `verificationStatus`), doğrulanmamış kullanıcı kilitleri, saklama/silme politikası taslağı.
+2. Kullanıcıdan bekleyen kararlar hâlâ açık (D-012): özellikle S-01, S-04, S-17 (Firebase bölgesi), S-25 (token onayı), S-30/S-31, S-32.
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
 ## 11. Açık sorular
@@ -455,6 +513,7 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | S-29 | Ürün başarı metrikleri | Tanımlı değil |
 | S-30 | Firebase projeleri / varsayılan dal | Yok; Faz 2'ye kadar emulator |
 | S-31 | Alan adı (kanonik URL, sitemap) | `NEXT_PUBLIC_SITE_URL` ile verilecek; yoksa `http://localhost:3000` ve indeksleme kapalı |
+| S-32 | E-posta doğrulaması zorunlu mu? | Hayır; bilgilendirme bandı gösteriliyor (D-026) |
 
 ## 12. Değişiklik günlüğü
 
@@ -463,3 +522,4 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 0 | Memory Bank oluşturuldu; skill keşfi ve Faz 0 dokümanları |
 | 2026-09-25 | 1 | Tasarım sistemi, landing, yasal taslaklar, SEO, testler, Lighthouse; D-012…D-019 |
 | 2026-09-25 | 2 | Contracts, Functions iskeleti, default deny Rules + testler, connector katmanı, CSP, CI, SessionStart hook; D-020…D-025 |
+| 2026-09-25 | 3 | Kimlik doğrulama, onboarding, profil, üniversite; Rules + testler; e2e emulator akışı; D-026…D-032 |

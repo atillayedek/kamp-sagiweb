@@ -1,5 +1,15 @@
 import { customClaimsSchema } from "@kampusagi/contracts";
-import { getIdTokenResult, onIdTokenChanged, signOut, type Auth, type User } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  getIdTokenResult,
+  onIdTokenChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut,
+  type Auth,
+  type User,
+} from "firebase/auth";
 import { toAppError } from "../errors";
 import type { AuthConnector, Session } from "../types";
 
@@ -40,6 +50,32 @@ export class FirebaseAuthConnector implements AuthConnector {
     try {
       return await toSession(this.auth.currentUser, true);
     } catch (error) {
+      throw toAppError(error);
+    }
+  }
+
+  async signInWithEmail(email: string, password: string) {
+    try {
+      await signInWithEmailAndPassword(this.auth, email.trim(), password);
+    } catch (error) {
+      throw toAppError(error);
+    }
+  }
+
+  async signUpWithEmail(email: string, password: string) {
+    try {
+      const credential = await createUserWithEmailAndPassword(this.auth, email.trim(), password);
+      await sendEmailVerification(credential.user).catch(() => undefined);
+    } catch (error) {
+      throw toAppError(error);
+    }
+  }
+
+  async sendPasswordReset(email: string) {
+    try {
+      await sendPasswordResetEmail(this.auth, email.trim());
+    } catch (error) {
+      if ((error as { code?: unknown }).code === "auth/user-not-found") return;
       throw toAppError(error);
     }
   }

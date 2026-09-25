@@ -1,5 +1,11 @@
 import type { z } from "zod";
 import { pingRequestSchema, pingResponseSchema } from "./schemas/ping";
+import {
+  completeOnboardingRequestSchema,
+  completeOnboardingResponseSchema,
+  updateProfileRequestSchema,
+  updateProfileResponseSchema,
+} from "./schemas/profile";
 
 export const CONTRACT_VERSION = 1;
 
@@ -8,6 +14,16 @@ export const callables = {
     name: "v1-ping",
     request: pingRequestSchema,
     response: pingResponseSchema,
+  },
+  completeOnboarding: {
+    name: "v1-completeOnboarding",
+    request: completeOnboardingRequestSchema,
+    response: completeOnboardingResponseSchema,
+  },
+  updateProfile: {
+    name: "v1-updateProfile",
+    request: updateProfileRequestSchema,
+    response: updateProfileResponseSchema,
   },
 } as const;
 

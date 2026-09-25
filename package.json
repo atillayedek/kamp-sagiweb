@@ -13,7 +13,10 @@
     "test": "pnpm -r test",
     "test:rules": "node scripts/emulators-exec.mjs firestore,storage \"pnpm --filter @kampusagi/rules-tests test:emulator\"",
     "test:emulator": "pnpm --filter @kampusagi/functions build && node scripts/emulators-exec.mjs auth,firestore,storage,functions \"pnpm --filter @kampusagi/web test:emulator\"",
-    "check:bundle": "node scripts/check-client-bundle.mjs"
+    "check:bundle": "node scripts/check-client-bundle.mjs",
+    "dev:local": "pnpm --filter @kampusagi/functions build && node scripts/emulators-exec.mjs auth,firestore,storage,functions \"node scripts/seed-emulator.mjs && pnpm --filter @kampusagi/web dev\"",
+    "build:web:emulator": "node scripts/run-with-env.mjs NEXT_PUBLIC_USE_FIREBASE_EMULATORS=true -- pnpm --filter @kampusagi/web build",
+    "test:e2e": "pnpm --filter @kampusagi/functions build && pnpm build:web:emulator && node scripts/emulators-exec.mjs auth,firestore,storage,functions \"pnpm --filter @kampusagi/web test:e2e\""
   },
   "devDependencies": {
     "firebase-tools": "15.31.0"

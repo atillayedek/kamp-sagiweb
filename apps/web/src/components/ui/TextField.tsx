@@ -18,7 +18,12 @@ function FieldFrame({ id, label, hint, error, required, counter, children }: Fie
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="font-semibold text-ink">
         {label}
-        {required && <span className="font-normal text-ink-muted"> (zorunlu)</span>}
+        {required && (
+          <span aria-hidden="true" className="text-danger">
+            {" "}
+            *
+          </span>
+        )}
       </label>
       {hint && (
         <p id={`${id}-hint`} className="text-sm text-ink-muted">

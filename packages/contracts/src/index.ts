@@ -3,3 +3,4 @@ export * from "./errors";
 export * from "./runtime";
 export * from "./schemas/common";
 export * from "./schemas/ping";
+export * from "./schemas/profile";

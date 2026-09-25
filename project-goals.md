@@ -1,6 +1,6 @@
 # KampüsAğı Web — Proje Hedefleri
 
-> Durum: **Faz 0 ve Faz 1 tamamlandı; Faz 2 sürüyor** · Son güncelleme: 2026-09-25
+> Durum: **Faz 0–3 tamamlandı; Faz 4 sürüyor** · Son güncelleme: 2026-09-25
 > Bu dosyadaki "ÖNERİ" etiketli her şey kesin karar değildir. "BELİRSİZ / KARAR BEKLİYOR" maddeleri §11'de listelidir; kararlar `memory-bank/Memory_Bank.md` içinde kayıt altına alınır.
 
 ---
@@ -178,6 +178,8 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-28 | Anthropic API veri yerleşimi | HUKUKİ İNCELEME GEREKLİ | `inference_geo` belgelenmiş değerleri yalnızca `us` / `global`; AB/TR seçeneği yok → Claude'a giden metin yurt dışına aktarılır. PII maskeleme zorunlu | Faz 6 öncesi |
 | S-29 | İş/ürün başarı metrikleri (aktivasyon, eşleşme oranı vb.) | BELİRSİZ | Kaynakta tanımlı değil; uydurulmadı. Kullanıcıdan istenecek | Faz 13 |
 | S-30 | Firebase projeleri (dev/staging/prod) ve GitHub varsayılan dalı | BELİRSİZ | Proje yok; repo boş (varsayılan dal yok). Faz 2'ye kadar emulator yeterli | Faz 2 |
+| S-31 | Alan adı | BELİRSİZ | `NEXT_PUBLIC_SITE_URL` verilene kadar indeksleme kapalı | Faz 14 |
+| S-32 | E-posta doğrulaması zorunlu mu? | BELİRSİZ | Zorunlu değil; bilgilendirme bandı | Faz 4 |
 
 ## 12. Başarı kriterleri
 

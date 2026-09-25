@@ -38,6 +38,16 @@ export class InMemoryAuthConnector implements AuthConnector {
     return this.session;
   }
 
+  async signInWithEmail(email: string) {
+    this.setSession({ user: { uid: `uid-${email}`, email, emailVerified: true }, claims: {} });
+  }
+
+  async signUpWithEmail(email: string) {
+    this.setSession({ user: { uid: `uid-${email}`, email, emailVerified: false }, claims: {} });
+  }
+
+  async sendPasswordReset() {}
+
   async signOut() {
     this.setSession(null);
   }
@@ -70,6 +80,13 @@ export class InMemoryDocumentSource implements DocumentSource {
 
   async getDocument<S extends z.ZodType>(path: string, schema: S) {
     return this.documents.has(path) ? parseOrThrow(schema, this.documents.get(path), path) : null;
+  }
+
+  async listCollection<S extends z.ZodType>(path: string, schema: S) {
+    const prefix = `${path}/`;
+    return [...this.documents.entries()]
+      .filter(([key]) => key.startsWith(prefix) && !key.slice(prefix.length).includes("/"))
+      .map(([key, value]) => ({ id: key.slice(prefix.length), data: parseOrThrow(schema, value, key) }));
   }
 
   watchDocument<S extends z.ZodType>(

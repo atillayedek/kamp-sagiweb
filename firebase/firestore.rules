@@ -2,6 +2,43 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isModerator() {
+      return isSignedIn() && request.auth.token.moderator == true;
+    }
+
+    function isVerified() {
+      return isSignedIn()
+        && request.auth.token.verified == true
+        && request.auth.token.universityId is string;
+    }
+
+    function sameUniversity(data) {
+      return isVerified() && data.universityId == request.auth.token.universityId;
+    }
+
+    match /universities/{universityId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isModerator() || sameUniversity(resource.data);
+      allow write: if false;
+    }
+
+    match /userPrivate/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

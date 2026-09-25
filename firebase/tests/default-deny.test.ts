@@ -10,7 +10,7 @@ let env: RulesTestEnvironment;
 beforeAll(async () => {
   env = await createTestEnv();
   await env.withSecurityRulesDisabled(async (context) => {
-    await setDoc(doc(context.firestore(), "users/u1"), { displayName: "Deniz" });
+    await setDoc(doc(context.firestore(), "kurali-olmayan/u1"), { ownerUid: "u1" });
     await uploadString(ref(context.storage(), "verification/u1/belge.pdf"), "%PDF-1.7");
   });
 });
@@ -26,12 +26,12 @@ describe("Firestore varsayılan olarak her şeyi reddeder", () => {
     await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(), path)));
   });
 
-  it("var olan belgeyi sahibi bile okuyamaz (açık kural yok)", async () => {
-    await assertFails(getDoc(doc(env.authenticatedContext("u1").firestore(), "users/u1")));
+  it("açık kuralı olmayan koleksiyonda var olan belge okunamaz", async () => {
+    await assertFails(getDoc(doc(env.authenticatedContext("u1").firestore(), "kurali-olmayan/u1")));
   });
 
-  it("oturumlu kullanıcı kendi yolunda bile yazamaz (açık kural yok)", async () => {
-    await assertFails(setDoc(doc(env.authenticatedContext("u1").firestore(), "users/u1"), { displayName: "Deniz" }));
+  it("oturumlu kullanıcı açık kuralı olmayan koleksiyona yazamaz", async () => {
+    await assertFails(setDoc(doc(env.authenticatedContext("u1").firestore(), "kurali-olmayan/u2"), { a: 1 }));
   });
 
   it("moderatör claim'i tek başına açık kural olmadan erişim sağlamaz", async () => {

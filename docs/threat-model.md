@@ -67,7 +67,9 @@ Web istemcisi (landing + uygulama + `/admin`), Cloud Functions, Firestore, Stora
 | T-14 | Uygulama rotasının statik render edilip nonce CSP ile bozulması / CSP'nin gevşetilmesi baskısı | Uygulama rotaları dinamik render zorunlu, e2e CSP testi (D-021) | 3+ |
 | T-10 | Claim gecikmesi nedeniyle iptal edilen yetkinin sürmesi | Refresh token iptali + hassas yazımlarda belge kontrolü (D-007) | 4, 12 |
 | T-11 | XSS (kullanıcı içeriği) | Ham HTML render yok, CSP | 1, 8–10 |
-| T-12 | Açık yönlendirme | Yalnızca göreli/izinli yönlendirme | 3 |
+| T-12 | Açık yönlendirme | `safeNextPath` (göreli yol zorunlu, `//`, `\`, kontrol karakteri, farklı origin reddi); birim + e2e testleri (Faz 3'te uygulandı) | 3 |
+| T-15 | Hesap sayımı (şifre sıfırlamada hesabın var olup olmadığının anlaşılması) | `auth/user-not-found` başarı gibi yanıtlanır; giriş hatası tek tip mesaj ("E-posta veya şifre hatalı.") (Faz 3) | 3 |
+| T-16 | Kullanıcının profiline sunucu alanı (doğrulama durumu, itibar) yazması | İstemci yazımı Rules'ta kapalı; callable'larda strict Zod şeması (D-027) (Faz 3) | 3 |
 
 ## 7. Artık riskler
 

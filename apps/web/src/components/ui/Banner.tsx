@@ -25,14 +25,16 @@ export function Banner({ tone = "info", title, children, action, live = false, c
   return (
     <div
       role={live ? (tone === "danger" ? "alert" : "status") : undefined}
-      className={cn("flex flex-col gap-3 rounded-card border-l-4 p-4 sm:flex-row sm:items-start", style.box, className)}
+      className={cn("flex items-start gap-3 rounded-card border-l-4 p-4", style.box, className)}
     >
       <Icon name={style.icon} className={cn("mt-0.5 size-5", style.iconColor)} />
-      <div className="flex-1 space-y-1">
-        <p className="font-semibold text-ink">{title}</p>
-        {children && <div className="text-sm text-ink">{children}</div>}
+      <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="flex-1 space-y-1">
+          <p className="font-semibold text-ink">{title}</p>
+          {children && <div className="text-sm text-ink">{children}</div>}
+        </div>
+        {action && <div className="shrink-0">{action}</div>}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }
