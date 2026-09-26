@@ -19,7 +19,7 @@ export async function signUp(page: Page, email: string) {
   await expect(page).toHaveURL(/\/baslangic$/);
 }
 
-export async function completeOnboarding(page: Page, displayName = "Deniz Yılmaz", universityId = "odtu") {
+export async function completeOnboarding(page: Page, displayName = "Deniz Yılmaz", universityId = "orta-dogu-teknik") {
   await page.getByLabel("Üniversiten").selectOption(universityId);
   await page.getByLabel("Görünen ad").fill(displayName);
   await page.getByLabel("Bölüm").fill("Bilgisayar Mühendisliği");

@@ -5,7 +5,7 @@ import { collectCspViolations, expectNoA11yViolations, expectNoHorizontalOverflo
 
 type Info = Parameters<typeof uniqueEmail>[0];
 
-async function verifiedStudent(page: Page, testInfo: Info, label: string, universityId = "odtu") {
+async function verifiedStudent(page: Page, testInfo: Info, label: string, universityId = "orta-dogu-teknik") {
   const email = uniqueEmail(testInfo, label);
   const displayName = uniqueName("Öğrenci");
   await createVerifiedStudent({ email, password: PASSWORD, displayName, universityId });
@@ -105,12 +105,12 @@ test("kampüs ilanını başka üniversiteden öğrenci göremez", async ({ page
   await writeNeed(page, "Vize haftası için ders çalışma grubu kuruyoruz, 4 kişi");
   const url = await publish(page);
 
-  const same = await otherStudentOpens(browser, testInfo, url, "odtu");
+  const same = await otherStudentOpens(browser, testInfo, url, "orta-dogu-teknik");
   await expect(same.page.getByRole("heading", { level: 2, name: /Vize haftası/ })).toBeVisible();
   await expect(same.page.getByText("Senin ilanın")).toHaveCount(0);
   await same.context.close();
 
-  const other = await otherStudentOpens(browser, testInfo, url, "itu");
+  const other = await otherStudentOpens(browser, testInfo, url, "istanbul-teknik");
   await expect(other.page.getByText("İlan bulunamadı")).toBeVisible();
   await expect(other.page.getByText(/Vize haftası/)).toHaveCount(0);
   await other.context.close();

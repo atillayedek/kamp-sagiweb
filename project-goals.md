@@ -153,7 +153,7 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-03 | Eşleşme ağırlıkları toplamı 105 | GEÇİCİ UYGULANDI | Ağırlıklar `config/matching` ile değiştirilebilir; uygulanabilir bileşenlere göre 100'e normalize (D-056); kullanıcı onayı bekliyor | Faz 7 |
 | S-04 | Kimlik doğrulama yöntemi (e-posta+şifre, Google, Apple, telefon, üniversite e-postası) | KARAR BEKLİYOR | Firebase Auth kesin; yöntem belirsiz | Faz 3 |
 | S-05 | Kampüs = `universityId` mi, üniversite içinde birden çok kampüs mü? | BELİRSİZ | "Aynı kampüs" = `universityId` eşitliği | Faz 5 |
-| S-06 | Üniversite listesini kim yönetir | BELİRSİZ | `universities` koleksiyonu, yalnızca admin yazar | Faz 3 |
+| S-06 | Üniversite listesini kim yönetir | KISMEN KARARLI | Kaynak: kullanıcının verdiği il–üniversite listesi (206 kurum, D-081); `universities` koleksiyonuna yalnızca admin yazar; güncelleme süreci belirsiz | Faz 3 / 14 |
 | S-07 | Öğrenci belgesi doğrulaması yalnızca manuel mi | Kaynakta "moderatör inceler" | Manuel; otomatik doğrulama kapsam dışı | Faz 4 |
 | S-08 | Moderatör arayüzü nerede | BELİRSİZ | Web'de `/admin` (custom claim + sunucu kontrolü) | Faz 4 |
 | S-09 | İlk moderatör nasıl atanır | BELİRSİZ | Sahibin yerelde çalıştırdığı, commit edilmeyen tek seferlik Admin SDK betiği | Faz 3 |
@@ -182,6 +182,7 @@ Custom claim taslağı: `moderator: boolean`, `verified: boolean`, `universityId
 | S-32 | E-posta doğrulaması zorunlu mu? | BELİRSİZ | Zorunlu değil; bilgilendirme bandı | Faz 4 |
 | S-33 | Canlı Claude değerlendirmesi ve effort ayarı | BELİRSİZ | Gerçek maliyet olduğu için kullanıcı onayıyla; o zamana kadar API varsayılanları (D-052) | Faz 13 |
 | S-34 | Kulüp ve etkinliği kim oluşturur; resmî kulüp doğrulaması, kulüp yöneticileri, kulübe bağlı etkinlik | GEÇİCİ UYGULANDI | Doğrulanmış her öğrenci callable ile (günlük 2 kulüp / 5 etkinlik); üniversite başına tekil kulüp adı; resmî rozet ve kulüp yönetimi yok (D-073) | Faz 9 / 12 |
+| S-36 | Üniversite listesindeki şüpheli kayıtlar | KARAR BEKLİYOR | Kaynaktaki haliyle bırakıldı. ÖNERİ: "Samsun Üniversitesi" ili Rize → Samsun; "İzmir Kavram Meslek Yüksekokulu" ili İstanbul (kaynaktaki adres de İstanbul) → doğrulanmalı; "İstanbul Şehir Üniversitesi" 2020'de kapatıldı → listeden çıkarılmalı; meslek yüksekokullarının kapsamda olup olmadığı | Faz 9 |
 | S-35 | Rapor ve moderasyon verisinin (içerik kopyası dahil) saklama süresi | BELİRSİZ | ÖNERİ: karardan sonra 1 yıl; hukuk onayı (S-16) | Faz 12 |
 
 ## 12. Başarı kriterleri

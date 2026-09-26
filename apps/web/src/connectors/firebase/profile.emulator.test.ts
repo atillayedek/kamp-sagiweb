@@ -19,7 +19,7 @@ const onboarding: CompleteOnboardingRequest = {
   interests: ["Basketbol"],
   skills: [],
   bio: "",
-  universityId: "odtu",
+  universityId: "orta-dogu-teknik",
   acceptedTermsVersion: LEGAL_TERMS_VERSION,
 };
 
@@ -62,7 +62,7 @@ describe("profil callable'ları", () => {
   });
 
   it("üniversite sonradan değiştirilemez", async () => {
-    await expect(functions.call("completeOnboarding", { ...onboarding, universityId: "itu" })).rejects.toMatchObject({
+    await expect(functions.call("completeOnboarding", { ...onboarding, universityId: "istanbul-teknik" })).rejects.toMatchObject({
       code: "failed-precondition",
     });
   });

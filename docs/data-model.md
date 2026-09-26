@@ -15,7 +15,7 @@
 
 | Yol | Alanlar | Okuma | Yazma |
 |---|---|---|---|
-| `universities/{universityId}` | `name`, `city` | Oturum açmış | S |
+| `universities/{universityId}` | `name`, `city` (il). Kimlik: ASCII slug, "Üniversitesi" sözcüğü atılmış (ör. `orta-dogu-teknik`); kaynak `firebase/seed/universities.json` (D-081) | Oturum açmış | S |
 | `users/{uid}` | `displayName`, `universityId`, `department`, `interests[]`, `skills[]`, `bio`, `verificationStatus` (S), `reputationScore` (S), `createdAt`, `updatedAt` | Tekil okuma: sahibi, moderatör, aynı üniversitedeki doğrulanmış. **Liste sorgusu yalnızca moderatör** (öğrenci rehberi çıkarılamaz) | S (callable) |
 | `userPrivate/{uid}` | `legal{acceptedTermsVersion, acceptedAt}`, `privacy{profileVisibility}`, `messaging{allowFrom}`, `verification{…}`, `createdAt` | Sahibi | S (callable) |
 | `verificationRequests/{requestId}` | `uid`, `universityId`, `storagePath`, `status`, `rejectReason`, `note`, `reviewedBy`, `reviewedAt`, `createdAt`, `purgeAt`, `fileDeletedAt` | Sahibi, moderatör | S |

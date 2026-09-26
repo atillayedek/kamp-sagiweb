@@ -381,7 +381,7 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Alternative: İsteğe bağlı alanları işaretlemek.
 - Risk: Yok.
 
-**D-032 — Demo üniversite verisi**
+**D-032 — Demo üniversite verisi** *(D-081 ile değişti)*
 - Decision: `firebase/seed/universities.json` (5 gerçek üniversite adı) yalnızca emulator/e2e içindir; `scripts/seed-emulator.mjs` REST ile yazar. Üretim listesi S-06 kararıyla yönetilecek.
 - Why: Onboarding'in yerelde ve testte çalışması.
 - Alternative: Tam liste (YÖK kaynağından) — doğrulanmadan eklenmedi.
@@ -716,6 +716,18 @@ Format: `Decision / Why / Alternative / Risk`. "Geçici" kararlar kullanıcı on
 - Why: CLAUDE.md: yetki yalnızca custom claim'den; Rules ile sunucu kararları aynı kaynağa dayanır (`code-review`).
 - Risk: Claim yenilenmemiş kullanıcı yeniden oturum açmalı (R-01).
 
+**D-081 — Üniversite listesi kullanıcının verdiği dosyadan**
+- Decision:
+  - Kullanıcının verdiği il–üniversite listesi (81 il, 206 kurum; meslek yüksekokulları ve İYTE dahil) `scripts/import-universities.mjs` ile `firebase/seed/universities.json`'a dönüştürüldü.
+  - Yalnızca kurum adı ve il alınır. Telefon, faks, e-posta, adres, web sitesi ve rektör adı veri minimizasyonu gereği alınmaz; ham dosya repoya eklenmez.
+  - Adlar Türkçe başlık biçimine çevrilir (`TOBB`, `TED`, `MEF`, `KTO`, `SANKO`, `AKEV`, `OSTİM` kısaltma olarak kalır; "ve" küçük; "Bezm-i Âlem").
+  - Kimlik: ASCII, küçük harf, "Üniversitesi" sözcüğü atılmış slug (`orta-dogu-teknik`, `istanbul-teknik`, `istanbul-cerrahpasa`). Eski demo kimlikleri (`odtu`, `itu`) e2e ve seed'de yenileriyle değiştirildi; Rules/birim testlerindeki `odtu`/`itu` yalnızca soyut değerdir.
+  - Kaynaktaki il bilgisi değiştirilmedi; şüpheli kayıtlar S-36'da. Onboarding listesi ada göre sıralı kalır (ile göre gruplama hatalı il kaydında kurumu bulunamaz yapardı).
+  - Bütünlük testi: `apps/web/src/lib/universities-seed.test.ts` (sözleşme, tekillik, yalnızca ad+il, kullanılan kimlikler, dönüşüm kuralları).
+- Why: Kullanıcı listeyi sağladı (S-06 veri kaynağı). Sabit, okunur ve üniversite değişse de kararlı kimlikler.
+- Alternative: Kısaltma kimlikleri (`odtu`) — tüm liste için tutarlı kısaltma kaynağı yok.
+- Risk: Liste güncelliği kullanıcı kaynağına bağlı (S-36). Üretime aktarım Faz 14'te onayla (Admin SDK); kimlikler üretimde kullanıcı verisine yazıldıktan sonra değiştirilmemeli.
+
 **D-019 — JSON-LD istisnası**
 - Decision: `dangerouslySetInnerHTML` yalnızca statik JSON-LD için, `<` kaçışlanarak kullanılır (Next.js dokümanındaki yöntem). Kullanıcı içeriği için yasak kuralı sürer.
 - Why: Yapılandırılmış veri `<script type="application/ld+json">` gerektirir.
@@ -926,7 +938,7 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
    - Okunmadı sayaçları ve `lastMessage` (sunucu tetikleyicisi).
    - Bildirim merkezi (sunucu yazar, istemci yalnızca `read`); yorum bildirimi (gönderi sahibine) burada değerlendirilecek.
    - Web push kararı (S-13).
-2. Kullanıcıdan bekleyen kararlar (D-012): S-01, S-04, S-11 (kategori listesi, D-050), S-17 (Firebase bölgesi), S-25, S-30/S-31, S-32, S-33 (canlı Claude değerlendirmesi ve effort taraması — gerçek maliyet), S-34 (kulüp/etkinlik oluşturma yetkisi), S-35 (rapor saklama süresi).
+2. Kullanıcıdan bekleyen kararlar (D-012): S-01, S-04, S-11 (kategori listesi, D-050), S-17 (Firebase bölgesi), S-25, S-30/S-31, S-32, S-33 (canlı Claude değerlendirmesi ve effort taraması — gerçek maliyet), S-34 (kulüp/etkinlik oluşturma yetkisi), S-35 (rapor saklama süresi), S-36 (üniversite listesindeki şüpheli kayıtlar).
 3. PR açılabilmesi ve `security-review` skill'inin çalışabilmesi için varsayılan dal (`main`) gerekiyor — kullanıcı izni bekleniyor.
 
 **Faz 14 kontrol listesine eklenenler (Faz 6)**
@@ -941,6 +953,7 @@ pnpm derleme betikleri: yalnızca `esbuild`'e izin var; `@firebase/util`, `proto
 - `config/matching` değişiklikleri için alarm (`matching.configInvalid` logu).
 
 **Faz 14 kontrol listesine eklenenler (Faz 9)**
+- Üniversite listesinin üretime aktarımı (Admin SDK; `firebase/seed/universities.json`; kullanıcı onayıyla). Kimlikler aktarımdan sonra sabit kalmalı.
 - Firestore TTL politikası: `counterEvents.expiresAt` (günlük temizlik işi yalnızca emniyet ağı; tavan aşılırsa `records.purgeCapped` uyarısı).
 - Yeni indeks: `reports (status, createdAt)`.
 - Params: `CLUB_DAILY_CREATES`, `EVENT_DAILY_CREATES`, `REPORT_DAILY_LIMIT`.
@@ -957,7 +970,8 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | S-03 | Ağırlık toplamı 105 | Config + normalize (D-003) |
 | S-04 | Auth yöntemi | Firebase Auth; yöntem Faz 3'te |
 | S-05 | Kampüs tanımı | `universityId` eşitliği |
-| S-06 | Üniversite listesi yönetimi | Yalnızca admin yazar |
+| S-06 | Üniversite listesi yönetimi | Yalnızca admin yazar; kaynak kullanıcının verdiği liste (D-081) |
+| S-36 | Üniversite listesindeki şüpheli kayıtlar | Kaynaktaki haliyle bırakıldı; kullanıcı onayı bekliyor |
 | S-07 | Belge doğrulaması manuel mi | Manuel |
 | S-08 | Moderatör arayüzü | Web `/admin` |
 | S-09 | İlk moderatör | Yerel, commit edilmeyen Admin SDK betiği |
@@ -1003,4 +1017,5 @@ Tam tablo ve karar fazları: `project-goals.md` §11. Özet:
 | 2026-09-25 | 6 | CI düzeltmesi (PDF önizleme yeteneği); D-053 |
 | 2026-09-25 | 7 | Eşleştirme motoru, eşleşme görünürlüğü, bildirim, ilan sahibine liste; D-054…D-063 |
 | 2026-09-25 | 8 | Keşfet: akışlar, öneriler, ilgi/kaydet, kapatma, ilgilenenler; D-064…D-071 |
+| 2026-09-25 | 9 | Üniversite listesi kullanıcının dosyasından (206 kurum); D-081, S-36 |
 | 2026-09-25 | 9 | Topluluklar: gönderi/yorum/beğeni + sunucu sayaçları, kulüp/etkinlik, içerik bildirimi → moderatör kuyruğu, silme; D-072…D-080 |

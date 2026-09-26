@@ -18,11 +18,17 @@ export async function resetEmulators() {
 
 export async function seedUniversities() {
   const { universities } = JSON.parse(readFileSync(new URL("../firebase/seed/universities.json", import.meta.url), "utf8"));
-  for (const [id, university] of Object.entries(universities)) {
-    const fields = Object.fromEntries(Object.entries(university).map(([key, value]) => [key, { stringValue: value }]));
-    await request(`${documents}/universities/${id}`, { method: "PATCH", body: JSON.stringify({ fields }) });
+  const entries = Object.entries(universities);
+  // Emulator'ı boğmadan hızlı yüklemek için 20'lik gruplar hâlinde yazılır.
+  for (let index = 0; index < entries.length; index += 20) {
+    await Promise.all(
+      entries.slice(index, index + 20).map(([id, university]) => {
+        const fields = Object.fromEntries(Object.entries(university).map(([key, value]) => [key, { stringValue: value }]));
+        return request(`${documents}/universities/${id}`, { method: "PATCH", body: JSON.stringify({ fields }) });
+      }),
+    );
   }
-  return Object.keys(universities).length;
+  return entries.length;
 }
 
 export async function createUser({ email, password, claims }) {
@@ -64,7 +70,7 @@ export async function createVerifiedStudent({
   email,
   password,
   displayName,
-  universityId = "odtu",
+  universityId = "orta-dogu-teknik",
   department = "Bilgisayar Mühendisliği",
   interests = ["basketbol"],
   skills = ["python"],
